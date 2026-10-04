@@ -130,53 +130,6 @@ operativa en el momento de la entrega final.
 [Cuadro de mandos](http://10.22.143.222:3838/sample-apps/a2405/Dashboard3.Rmd)
 
 
-<!--
-IMAGEN DE PORTADA:
-Sustituye la imagen de abajo por una representativa de tu tema de proyecto.
-Puede ser una imagen propia, de dominio público o con licencia Creative Commons.
-El atributo width controla el tamaño relativo respecto al ancho del documento.
-
-IMPORTANTE: guarda tu imagen como un FICHERO LOCAL en la misma carpeta que
-este Rmd (por ejemplo "portada.png") y referencia esa ruta relativa, no una
-URL externa. Así la portada se ve igual si el documento se lee localmente
-(sin conexión a internet, por ejemplo al abrir el .html descargado) que si
-se lee a través de un enlace: una imagen que depende de un servidor externo
-no aparece si ese servidor no está disponible o no hay red en ese momento.
-La imagen de ejemplo de abajo SÍ es una URL externa a propósito, para que la
-plantilla se vea bien antes de que la sustituyas; cámbiala por tu fichero
-local antes de entregar.
--->
-
-<center>
-<img src="https://ctim.es/Delmond.png" width="60%" />
-</center>
-
-Para formatear el texto se usa el fichero *estilos.css* que está incluido en las instrucciones de la cabecera de este documento. En el fichero *estilos.css* se incorporan algunas herramientas útiles para destacar bloques de texto como por ejemplo: 
-
-<div class="nota">
-<strong class="bloque-titulo">MiTítulo bloque nota</strong>
-Se usa para resaltar un comentario
-</div>
-
-<div class="metodo">
-<strong class="bloque-titulo">MiTítulo bloque metodo</strong>
-Se usa para resaltar métodos/algoritmos/fórmulas 
-</div>
-
-<div class="discusion">
-<strong class="bloque-titulo">MiTítulo bloque de discusion </strong>
-Se usa para resaltar una discusión/comparación/resultados previos
-</div>
-
-<div class="resultado">
-<strong class="bloque-titulo">MiTítulo bloque resultado</strong>
-Se usa para resaltar resultados de nuestro proyecto
-</div>
-
-NOTA: BORRAR O PONER ENTRE COMENTARIOS ESTOS EJEMPLOS DE FORMATEO UNA VEZ ENTENDIDOS LOS EJEMPLO 
-
-
-
 # Introducción
 
 <!--
@@ -255,11 +208,16 @@ convincente el resto del proyecto.
 4. Diseñar un cuadro de mandos interactivo (Shiny, servidor DIS) que permita explorar series temporales, mapas coropléticos, PCA y correlaciones con selección dinámica de variables.
 
 **Preguntas de investigación:**
-- **P1:** ¿Se ha recuperado el empleo en Canarias tras la crisis de 2008 al mismo ritmo que en el resto de comunidades? ¿Qué municipios/islas muestran mayor rezago?
-- **P2:** ¿Qué relación existe entre la evolución de la vivienda iniciada y la inversión bruta en Canarias vs. España? ¿Hay desajuste oferta-demanda?
-- **P3:** ¿Cómo ha evolucionado la dinámica empleo-población a nivel municipal en Canarias (2012–2025)? ¿Hay municipios en declive demográfico con empleo creciente o viceversa?
-- **P4:** ¿Qué islas dependen más de un solo sector (construcción/turismo) y cómo afectó esa dependencia a su resiliencia económica tras 2008 y 2020?
-- **P5:** ¿Qué nivel de afiliaciones/empleo cabe esperar en los próximos dos años según modelos ARIMA? ¿Y el IPC y el precio del gasóleo?
+
+  - **P1:** ¿Se ha recuperado el empleo en Canarias tras la crisis de 2008 al mismo ritmo que en el resto de comunidades? ¿Qué municipios/islas muestran mayor rezago?
+  
+  - **P2:** ¿Qué relación existe entre la evolución de la vivienda iniciada y la inversión bruta en Canarias vs. España? ¿Hay desajuste oferta-demanda?
+  
+  - **P3:** ¿Cómo ha evolucionado la dinámica empleo-población a nivel municipal en Canarias (2012–2025)? ¿Hay municipios en declive demográfico con empleo creciente o viceversa?
+  
+  - **P4:** ¿Qué islas dependen más de un solo sector (construcción/turismo) y cómo afectó esa dependencia a su resiliencia económica tras 2008 y 2020?
+  
+  - **P5:** ¿Qué nivel de afiliaciones/empleo cabe esperar en los próximos dos años según modelos ARIMA? ¿Y el IPC y el precio del gasóleo?
 
 <!--
 PROPÓSITO: Declarar con claridad qué quieres lograr con este proyecto.
@@ -1137,10 +1095,13 @@ la reflexión global, sin repetirlo.
 
 | Agente | Coste | Uso principal |
 |---|---|---|
-| Claude (Sonnet 4.5) | Gratuito | Depuración de código R y redacción de la memoria |
-| ChatGPT (GPT-4o) | Gratuito | Consultas conceptuales y explicación de errores |
-| GitHub Copilot | Licencia estudiante | Autocompletado de código en RStudio |
-| Gemini | Gratuito | Búsqueda de información sobre el dominio del proyecto |
+| **Hermes Agent** (NVIDIA Nemotron 3 Ultra) | Gratuito | Orquestación del proyecto, edición de memoria, coordinación de agentes |
+| **Claude Code CLI** (Anthropic) | Suscripción Pro/Max | Desarrollo de código R, depuración, automatización CRISP-DM |
+| **Claude (Sonnet 4.5)** | Gratuito | Depuración de código R y redacción de la memoria |
+| **ChatGPT (GPT-4o / o1)** | Gratuito/Plus | Consultas conceptuales, explicación de errores, brainstorming |
+| **Nemotron 3 Ultra** (NVIDIA) | Gratuito | Razonamiento complejo, planificación, análisis crítico |
+| **GitHub Copilot** | Licencia estudiante | Autocompletado de código en RStudio |
+| **Gemini** | Gratuito | Búsqueda de información sobre el dominio del proyecto |
 
 *Sustituye estas filas por las herramientas que hayas usado realmente. En "Uso principal" basta una frase breve por agente.*
 
