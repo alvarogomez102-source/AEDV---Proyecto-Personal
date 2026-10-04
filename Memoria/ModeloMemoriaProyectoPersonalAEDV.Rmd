@@ -160,7 +160,22 @@ ERRORES FRECUENTES A EVITAR:
 
 ## Estado actual
 
+### Estado del arte del tema
+
 Canarias presenta una estructura económica singular dentro de España, caracterizada por su lejanía insular, alta dependencia del turismo y la construcción, y un mercado laboral con estacionalidad marcada. La crisis de 2008 afectó severamente al archipiélago, con una destrucción de empleo superior a la media nacional y una recuperación más lenta. Estudios previos (ISTAC, 2023; Banco de España, 2022) señalan que la convergencia en renta per cápita se ha estancado desde 2010. Los datos del ISTAC permiten analizar ocho dimensiones clave —empleo, vivienda, construcción, inversión, demografía, salud, precios y energía— con cobertura municipal/islas/CCAA y series largas (1999–2026), ofreciendo una oportunidad única para un análisis integrado multiescalar.
+
+### Estado actual del proyecto (Entregas 1–3)
+
+<div class="metodo">
+<strong class="bloque-titulo">Estado de las entregas del proyecto</strong>
+
+| Entrega | Estado | Qué se ha completado |
+|---------|--------|----------------------|
+| **Entrega 1** (Validación tema y datasets) | ✅ **Completada** | P1–P5 definidas; 8 indicadores ISTAC validados (≥4 AEDV); estrategia IA documentada; Google Sheet operativo. |
+| **Entrega 2** (Entrega intermedia) | 🔄 **En curso** | Comprensión/Preparación/Modelado/Evaluación preliminares; gráficas ggplot2; diagnóstico residuos y AICc. |
+| **Entrega 3** (Entrega final) | ⏳ **Pendiente** | Validación out-of-sample; gráficas Plotly; dashboard DIS (series facet_wrap, mapas, PCA, ARIMA); Conclusiones P1–P5; Bibliografía; Anexos I–II. |
+
+</div>
 
 <!--
 PROPÓSITO: Demostrar que conoces el estado del arte del tema que abordas.
