@@ -62,6 +62,6 @@ AEDV - ProyectoPersonal/
 - ⏳ Dashboard en servidor DIS (pendiente)
 
 ## Autor
-**Álvaro Ginés Gómez Delgado** (Varocraft)  
+**Álvaro Ginés Gómez Delgado**
 ULPGC — AEDV 2026/2027  
 Email: alvaro.gomez102@alu.ulpgc.es
