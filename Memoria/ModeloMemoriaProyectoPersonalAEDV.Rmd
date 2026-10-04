@@ -29,7 +29,7 @@ ATAJOS DE TECLADO ESENCIALES:
   CTRL-ENTER        → Ejecuta el código seleccionado con el ratón o la línea actual
   CTRL-SHIFT-K      → Compila (Knit) el documento completo
   CTRL-ALT-I        → Inserta un nuevo chunk de código R
--->
+--->
 
 ```{r setup, echo=FALSE}
 # ============================================================
@@ -47,6 +47,11 @@ knitr::opts_chunk$set(
                      #        cuando hay chunks lentos). Si hay errores inexplicables,
                      #        borra la carpeta con extensión "_cache" y recompila todo.
 )
+```
+
+```{r portada-local, echo=FALSE, out.width='60%', fig.align='center'}
+# Portada local — sustituye "portada.png" por tu imagen real en la misma carpeta
+knitr::include_graphics("portada.png")
 ```
 
 ```{r global, include=FALSE}
@@ -202,6 +207,8 @@ ERRORES FRECUENTES A EVITAR:
 
 ## Estado actual
 
+Canarias presenta una estructura económica singular dentro de España, caracterizada por su lejanía insular, alta dependencia del turismo y la construcción, y un mercado laboral con estacionalidad marcada. La crisis de 2008 afectó severamente al archipiélago, con una destrucción de empleo superior a la media nacional y una recuperación más lenta. Estudios previos (ISTAC, 2023; Banco de España, 2022) señalan que la convergencia en renta per cápita se ha estancado desde 2010. Los datos del ISTAC permiten analizar ocho dimensiones clave —empleo, vivienda, construcción, inversión, demografía, salud, precios y energía— con cobertura municipal/islas/CCAA y series largas (1999–2026), ofreciendo una oportunidad única para un análisis integrado multiescalar.
+
 <!--
 PROPÓSITO: Demostrar que conoces el estado del arte del tema que abordas.
 
@@ -216,6 +223,8 @@ CONTENIDO ESPERADO:
 -->
 
 ## Motivación
+
+Mi vinculación con Canarias es personal y familiar: nací y resido en Las Palmas de Gran Canaria, y he vivido directamente la volatilidad del mercado laboral canario y la presión sobre la vivienda. Profesionalmente, el análisis de datos socioeconómicos locales permite aportar evidencia para la toma de decisiones en planificación territorial, políticas de empleo y vivienda. La oportunidad surge de la disponibilidad reciente (2024–2026) de series actualizadas mensuales/trimestrales en el ISTAC que no existían en convocatorias anteriores, permitiendo capturar la recuperación post-COVID y la inflación 2022–2023 con granularidad municipal.
 
 <!--
 PROPÓSITO: Justificar de forma personal y directa la elección de este tema.
@@ -236,6 +245,21 @@ convincente el resto del proyecto.
 -->
 
 ## Objetivos
+
+**Objetivo general:** Analizar la evolución conjunta de empleo, vivienda, demografía y sectores productivos en Canarias (1999–2026) para identificar patrones de convergencia/divergencia interna y respecto a España, y construir modelos predictivos de corto plazo.
+
+**Objetivos específicos:**
+1. Identificar las principales variables que explican la dinámica empleo-población a nivel municipal en Canarias (2012–2025).
+2. Comparar la evolución de la vivienda iniciada y la inversión bruta en Canarias frente al resto de CCAA, evaluando el ciclo inmobiliario.
+3. Modelar y predecir series temporales clave (afiliaciones, IPC, cemento, gasóleo) mediante ARIMA/STL para horizonte 2025–2026.
+4. Diseñar un cuadro de mandos interactivo (Shiny, servidor DIS) que permita explorar series temporales, mapas coropléticos, PCA y correlaciones con selección dinámica de variables.
+
+**Preguntas de investigación:**
+- **P1:** ¿Se ha recuperado el empleo en Canarias tras la crisis de 2008 al mismo ritmo que en el resto de comunidades? ¿Qué municipios/islas muestran mayor rezago?
+- **P2:** ¿Qué relación existe entre la evolución de la vivienda iniciada y la inversión bruta en Canarias vs. España? ¿Hay desajuste oferta-demanda?
+- **P3:** ¿Cómo ha evolucionado la dinámica empleo-población a nivel municipal en Canarias (2012–2025)? ¿Hay municipios en declive demográfico con empleo creciente o viceversa?
+- **P4:** ¿Qué islas dependen más de un solo sector (construcción/turismo) y cómo afectó esa dependencia a su resiliencia económica tras 2008 y 2020?
+- **P5:** ¿Qué nivel de afiliaciones/empleo cabe esperar en los próximos dos años según modelos ARIMA? ¿Y el IPC y el precio del gasóleo?
 
 <!--
 PROPÓSITO: Declarar con claridad qué quieres lograr con este proyecto.
@@ -336,6 +360,18 @@ comprensible sin necesidad de haber leído las fases anteriores.
 
 ## Principales aportaciones
 
+Se espera que este proyecto aporte las siguientes contribuciones al conocimiento de la dinámica socioeconómica y demográfica de Canarias:
+
+1. **Análisis integrado multiescalar (municipal–insular–CCAA)** de ocho indicadores clave (empleo, vivienda, construcción, inversión, población, salud, precios, energía) con series temporales homogéneas 1999–2026, permitiendo comparar la evolución interna de Canarias y su posicionamiento frente al resto de España.
+
+2. **Identificación de tipologías municipales** según su trayectoria empleo-población 2012–2025 (crecimiento sostenido, estancamiento, declive demográfico con empleo resiliente, etc.), mediante técnicas de agrupamiento y series temporales, aportando una clasificación operativa para políticas territoriales.
+
+3. **Evidencia cuantitativa del desajuste vivienda-inversión** en Canarias vs. España: se compara la evolución de VIVIENDAS_INICIADAS e INVERSION_ESPANOLA_BRUTA para detectar períodos de sobreoferta/suboferta residencial y su relación con el ciclo económico.
+
+4. **Modelos predictivos ARIMA/STL validados** para series clave (afiliaciones, IPC, cemento, gasóleo) con horizonte 2025–2026, incluyendo intervalos de confianza y diagnóstico de residuos, útiles para planificación de corto plazo.
+
+5. **Cuadro de mandos interactivo (Shiny, servidor DIS)** que permite explorar dinámicamente: series temporales con `facet_wrap` por municipio/isla/CCAA y selección múltiple de atributos; mapas coropléticos municipales/insulares; matriz de correlación y biplot PCA con variables seleccionables; y panel de predicción ARIMA con parámetros editables. Todas las variables se controlan mediante `selectInput`/`sliderInput` dinámicos, sin valores hardcodeados.
+
 <!--
 PROPÓSITO: Sintetizar el valor añadido de tu trabajo en el contexto del área de estudio.
 
@@ -396,19 +432,19 @@ REFERENCIA OFICIAL DE LOS ODS: https://sdgs.un.org/goals
 # ============================================================
 tb <- tribble(
   ~ODS,                                                                          ~No_procede, ~Bajo, ~Medio, ~Alto,
-  "ODS 1.  Fin de la pobreza",                                                   "X",         "",    "",     "",
-  "ODS 2.  Hambre cero",                                                         "",         "X",    "",     "",
-  "ODS 3.  Salud y bienestar",                                                   "",         "",    "X",     "",
-  "ODS 4.  Educación de calidad",                                                "",         "",    "",     "X",
+  "ODS 1.  Fin de la pobreza",                                                   "",         "",    "X",     "",
+  "ODS 2.  Hambre cero",                                                         "X",         "",    "",     "",
+  "ODS 3.  Salud y bienestar",                                                   "",         "",    "",     "X",
+  "ODS 4.  Educación de calidad",                                                "X",         "",    "",     "",
   "ODS 5.  Igualdad de género",                                                  "X",         "",    "",     "",
   "ODS 6.  Agua limpia y saneamiento",                                           "X",         "",    "",     "",
-  "ODS 7.  Energía asequible y no contaminante",                                 "X",         "",    "",     "",
-  "ODS 8.  Trabajo decente y crecimiento económico",                             "X",         "",    "",     "",
-  "ODS 9.  Industria, innovación e infraestructura",                             "X",         "",    "",     "",
-  "ODS 10. Reducción de las desigualdades",                                      "X",         "",    "",     "",
-  "ODS 11. Ciudades y comunidades sostenibles",                                  "X",         "",    "",     "",
+  "ODS 7.  Energía asequible y no contaminante",                                 "",         "",    "X",     "",
+  "ODS 8.  Trabajo decente y crecimiento económico",                             "",         "",    "",     "X",
+  "ODS 9.  Industria, innovación e infraestructura",                             "",         "",    "X",     "",
+  "ODS 10. Reducción de las desigualdades",                                      "",         "",    "X",     "",
+  "ODS 11. Ciudades y comunidades sostenibles",                                  "",         "",    "X",     "",
   "ODS 12. Producción y consumo responsables",                                   "X",         "",    "",     "",
-  "ODS 13. Acción por el clima",                                                 "X",         "",    "",     "",
+  "ODS 13. Acción por el clima",                                                 "",         "X",    "",     "",
   "ODS 14. Vida submarina",                                                      "X",         "",    "",     "",
   "ODS 15. Vida de ecosistemas terrestres",                                      "X",         "",    "",     "",
   "ODS 16. Paz, justicia e instituciones sólidas",                               "X",         "",    "",     "",
@@ -429,11 +465,9 @@ kable(
   column_spec(5, extra_css = "text-align: center;")
 ```
 
-<!--
-TEXTO OBLIGATORIO TRAS LA TABLA:
-Añade aquí (fuera de este comentario) un párrafo de 100-200 palabras que argumente
-las relaciones marcadas como Medio o Alto en la tabla anterior.
--->
+El proyecto se relaciona directamente con **ODS 8 (Trabajo decente y crecimiento económico)** como relación **Alta**, al analizar la evolución del empleo asalariado (AFILIACIONES_ASALARIADOS) a nivel municipal en Canarias, su recuperación tras las crisis de 2008 y 2020, y su vínculo con la dinámica poblacional. **ODS 3 (Salud y bienestar)** también tiene relación **Alta** mediante el análisis de defunciones por cáncer (DEFUNCIONES_CANCER) por isla, permitiendo identificar disparidades territoriales en mortalidad oncológica. 
+
+Con relación **Media**: **ODS 1 (Fin de la pobreza)** — el empleo es el principal determinante de la renta familiar; **ODS 7 (Energía asequible)** — serie de precios del gasóleo (HIDROCARBUROS_PRECIO_GASOLEO) como indicador de costes energéticos y movilidad; **ODS 9 (Industria, innovación e infraestructura)** — ventas de cemento (CEMENTO_VENTAS) y viviendas iniciadas (VIVIENDAS_INICIADAS) reflejan actividad constructora e infraestructura residencial; **ODS 10 (Reducción de desigualdades)** — el análisis municipal revela brechas intrainsulares en empleo y población; **ODS 11 (Ciudades y comunidades sostenibles)** — dinámica vivienda-población y presión residencial en municipios turísticos. **ODS 13 (Acción por el clima)** tiene relación **Baja** indirecta a través del precio de carburantes como proxy de intensidad de carbono en el transporte.
 
 
 # Desarrollo
@@ -1218,7 +1252,7 @@ ESTRUCTURA DE LA GOOGLE SHEET (columnas esperadas):
 ```{r seguimiento-lectura, cache=FALSE}
 gs4_deauth()
 SeguimientoActividadesProyecto <- read_sheet(
-  'https://docs.google.com/spreadsheets/d/1w07FWlS3cwTad0mZa_Tanl-LL32IPEQXUqNPXmslpSs/edit?usp=sharing'
+  'https://docs.google.com/spreadsheets/d/1mYCAPs0QPuSGRPSmI8__gKXgc8DqSn-R9mfZO5keuZ0/edit?usp=sharing'
 ) |>
   as_tibble()
 ```
