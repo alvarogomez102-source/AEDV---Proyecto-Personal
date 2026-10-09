@@ -1119,7 +1119,17 @@ la reflexión global, sin repetirlo.
 | **GitHub Copilot** | Licencia estudiante | Autocompletado de código en RStudio |
 | **Gemini** | Gratuito | Búsqueda de información sobre el dominio del proyecto |
 
-*Sustituye estas filas por las herramientas que hayas usado realmente. En "Uso principal" basta una frase breve por agente.*
+## Modelos Gratuitos usados con las herramientas a destacar {-}
+
+| Modelo | Proveedor | Enlace |
+|---|---|---|
+| **Nemotron 3 Ultra** | OpenRouter NVIDIA | [nvidia/nemotron-3-ultra-550b-a55b:free](https://openrouter.ai/nvidia/nemotron-3-ultra-550b-a55b:free) |
+| **Nemotron 3 Super** | OpenRouter NVIDIA | [nvidia/nemotron-3-super-120b-a12b:free](https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b:free) |
+| **Nemotron 3.5 Lightning** | OpenRouter NVIDIA | [nvidia/nemotron-3.5-lightning:free](https://openrouter.ai/nvidia/nemotron-3.5-lightning:free) |
+| **Laguna S 2.1** | OpenRouter PoolSide | [poolside/laguna-s-2.1:free](https://openrouter.ai/poolside/laguna-s-2.1:free) |
+| **Laguna XS 2.1** | OpenRouter PoolSide | [poolside/laguna-xs-2.1:free](https://openrouter.ai/poolside/laguna-xs-2.1:free) |
+| **Nemotron 3 Ultra** | NVIDIA NVIDIA | [nvidia/nemotron-3-ultra-550b-a55b](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b) |
+| **Nemotron 3.5 Lightning** | NVIDIA NVIDIA | [nvidia/nemotron-3.5-lightning-30b-a3b](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b) |
 
 ## Organización del trabajo con la IA en AEDV {-}
 
