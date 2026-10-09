@@ -650,8 +650,6 @@ tablas de conteo o gráficas de barras de frecuencias absolutas sin transformaci
 <div class="nota">
 <strong class="bloque-titulo">Inclusión datasets </strong>
 
-## Comprensión de los datos
-
 ### 1. Descripción de las variables
 
 La API del ISTAC devuelve todos los indicadores en formato **tidy**: una fila por observación con cinco columnas estructurales.
