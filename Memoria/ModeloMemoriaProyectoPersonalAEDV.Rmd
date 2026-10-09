@@ -1053,7 +1053,19 @@ CON SU INDICADOR. Si la referencia es un enlace web hay que añadir las fechas d
 ================================================================================
 -->
 
-[[Al26](https://luisalvarezmat-aedv.share.connect.posit.cloud/)] Álvarez Luis. *Análisis Exploratorio de Datos y Visualización*, posit.cloud, 2026. (diversas consultas entre el Enero Septiembre y Diciembre d 2026)
+[[Al26](https://luisalvarezmat-aedv.share.connect.posit.cloud/)] Álvarez Luis. *Análisis Exploratorio de Datos y Visualización*, posit.cloud, 2026. (diversas consultas entre enero y diciembre de 2026)
+
+[[IST23](https://www.gobiernodecanarias.org/istac/.content/noticias/istac-actualiza-indicadores-demograficos-datos-2023-2025-noticia.html)] ISTAC (2023). *Actualización de indicadores demográficos de Canarias con datos 2023–2025: Censo Anual de Población y mallas de 250 metros*. Instituto Canario de Estadística, Gobierno de Canarias. [Consulta: octubre 2026].
+
+[[BdE23](https://www.bde.es/f/webbe/SES/Secciones/Publicaciones/PublicacionesAnuales/InformesAnuales/23/Fich/InfAnual_2023.pdf)] Banco de España (2023). *Informe Anual 2023: El mercado de la vivienda en España — evolución reciente, riesgos y problemas de accesibilidad (Cap. 4)*. Banco de España, Madrid. [Consulta: octubre 2026].
+
+[[BBV23](https://www.bbvaresearch.com/wp-content/uploads/2023/02/Situacion-Canarias-2023-1.pdf)] BBVA Research (2023). *Situación Canarias 2023: Análisis de la economía canaria, turismo, empleo, vivienda y previsiones 2023–2024*. BBVA Research, Madrid. [Consulta: octubre 2026].
+
+[[CCE23](https://www.ccelpa.org/informe-anual/IA2023/pdf/indicadores/13-2023.pdf)] Confederación Canaria de Empresarios (2023). *Informe Anual de la Economía Canaria 2023: Crecimiento regional, turismo, empleo y vivienda*. CCE, Las Palmas de Gran Canaria. [Consulta: octubre 2026].
+
+[[HWY21](https://www.diegocalvo.es/analisis-de-series-temporales-en-r-arima/)] Hyndman RJ & Athanasopoulos G (2021). *Forecasting: Principles and Practice (3rd ed.) — Capítulo ARIMA y series temporales en R*. OTexts, Melbourne. [Consulta: octubre 2026].
+
+[[Gob24](https://www3.gobiernodecanarias.org/istac/indicators-visualizations/indicatorsSystems/C00124A.html)] Gobierno de Canarias / ISTAC (2024). *Indicadores de Desarrollo Sostenible de Canarias: Marco regional alineado con la Agenda 2030 y ODS*. ISTAC, Gobierno de Canarias. [Consulta: octubre 2026].
 
 
 # Anexo I. Agentes de IA utilizados y organización del trabajo con la IA {-}
