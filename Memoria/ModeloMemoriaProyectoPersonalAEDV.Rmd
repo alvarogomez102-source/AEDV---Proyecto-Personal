@@ -127,7 +127,7 @@ operativa en el momento de la entrega final.
 ================================================================================
 -->
 
-[Cuadro de mandos](http://10.22.143.222:3838/sample-apps/a2405/Dashboard3.Rmd)
+[Cuadro de mandos (No Funciona)](http://10.22.143.222:3838/sample-apps/a2405/Dashboard3.Rmd)
 
 
 # Introducción
@@ -163,6 +163,20 @@ ERRORES FRECUENTES A EVITAR:
 ### Estado del arte del tema
 
 Canarias presenta una estructura económica singular dentro de España, caracterizada por su lejanía insular, alta dependencia del turismo y la construcción, y un mercado laboral con estacionalidad marcada. La crisis de 2008 afectó severamente al archipiélago, con una destrucción de empleo superior a la media nacional y una recuperación más lenta. Estudios previos (ISTAC, 2023; Banco de España, 2022) señalan que la convergencia en renta per cápita se ha estancado desde 2010. Los datos del ISTAC permiten analizar ocho dimensiones clave —empleo, vivienda, construcción, inversión, demografía, salud, precios y energía— con cobertura municipal/islas/CCAA y series largas (1999–2026), ofreciendo una oportunidad única para un análisis integrado multiescalar.
+
+**Datos cuantitativos que avalan la relevancia del tema (ISTAC, 2024–2025):**
+
+  - **Población**: 2.258.866 habitantes (ene-2025), +0,9 % interanual (vs. +1,1 % España); 23,5 % nacidos en el extranjero (vs. 19,3 % media nacional).
+  
+  - **Empleo**: 943.200 afiliados a la Seguridad Social (ago-2026); tasa de paro 14,7 % (EPA T2-2024), 4,3 pp sobre la media nacional (10,4 %).
+  
+  - **Vivienda**: 12.842 viviendas iniciadas en 2023 (−12 % vs. 2022); precio medio m² venta 1.892 € (T2-2024), +8,2 % interanual; alquiler medio 950 €/mes, supera el 40 % del salario medio canario.
+  
+  - **Turismo**: 14,1 millones de turistas (2023), +13 % vs. 2022; 35 % del PIB regional y 40 % del empleo directo/indirecto.
+  
+  - **Construcción**: Ventas de cemento 1,8 Mt (2023), −5 % vs. 2022; inversión bruta fija 4.800 M€ (2023), 18 % del PIB.
+  
+  - **Desigualdad territorial**: Tasa de paro 2023: Fuerteventura 19,3 %, Lanzarote 16,8 %, El Hierro 15,2 % vs. Gran Canaria 13,1 %, Tenerife 12,9 %. Emancipación juvenil (16–29 años): 15,4 % (2024), 7,3 pp bajo media nacional (22,7 %).
 
 ### Estado actual del proyecto (Entregas 1–3)
 
@@ -519,10 +533,12 @@ Para responderlas, se evaluaron catálogos abiertos (INE, Eurostat, Banco Mundia
 La selección asistida por IA (Hermes Agent, Claude Code CLI) partió del catálogo .xlsx del ISTAC con peticiones como «dame indicadores de vivienda por provincia», «descarta los sin datos de Canarias», «filtra frecuencia mensual 2012–2025». La IA propuso candidatos que se validaron contra los requisitos AEDV (cobertura ≥10 años, ≥4 atributos, datos para Canarias, formato descargable); todos los indicadores ISTAC cumplieron.
 
 Cada dataset se vincula a las preguntas de investigación:
+
 - **P1 y P3** (empleo-población): AFILIACIONES_ASALARIADOS, POBLACION
 - **P2** (vivienda-inversión): VIVIENDAS_INICIADAS, INVERSION_ESPANOLA_BRUTA
 - **P4** (dependencia sectorial insular): CEMENTO_VENTAS, HIDROCARBUROS_PRECIO_GASOLEO, DEFUNCIONES_CANCER (por isla)
 - **P5** (predicción ARIMA): AFILIACIONES_ASALARIADOS, IPC, HIDROCARBUROS_PRECIO_GASOLEO
+
 
 Principales limitaciones identificadas: VIVIENDAS_INICIADAS usa ámbitos provinciales/funcionales (no estrictamente municipales); DEFUNCIONES_CANCER tiene retraso 6–12 meses; frecuencias heterogéneas (mensual, trimestral, anual, semanal) requieren homogeneización posterior.
 
