@@ -512,72 +512,23 @@ Es importante observar que esta metodología es **iterativa**: los resultados ob
 
 ## Comprensión del negocio
 
-<!--
-================================================================================
-FASE CRISP-DM 1: COMPRENSIÓN DEL NEGOCIO
-================================================================================
-PROPÓSITO: Describir el proceso de búsqueda, evaluación y selección de fuentes
-de datos e información. NO repetir los objetivos del proyecto (ya están en la
-Introducción) ni describir los datos en detalle (eso va en la fase siguiente),
-pero SÍ justificar la selección a partir de las preguntas de investigación
-planteadas en "Objetivos": el lector debe entender por qué estos datos, y no
-otros, permiten responderlas.
+El proyecto nace de mi experiencia directa con la volatilidad del mercado laboral y la presión sobre la vivienda en Canarias (resido en Las Palmas de Gran Canaria). Las preguntas de investigación (P1–P5) buscan analizar la evolución conjunta de empleo, vivienda, demografía y sectores productivos (1999–2026) para detectar patrones de convergencia/divergencia interna y respecto a España, y construir modelos predictivos de corto plazo.
 
-CONTENIDO ESPERADO:
+Para responderlas, se evaluaron catálogos abiertos (INE, Eurostat, Banco Mundial, ISTAC). Se priorizó **ISTAC** por ofrecer los ocho indicadores necesarios —empleo, vivienda, construcción, inversión, población, salud, precios, energía— con cobertura municipal/islas/CCAA y series homogéneas 1999–2026, permitiendo un análisis multiescalar integrado que otras fuentes no proporcionan.
 
-1. ESTRATEGIA DE SELECCIÓN DE LOS DATASETS Y USO DE LA IA
-   Este es el lugar de la memoria donde se explica CÓMO se llegó a los datasets
-   elegidos. Describe el proceso real, incluidos los intentos fallidos:
-   - Punto de partida: qué tema y qué preguntas de investigación iniciales guiaron la
-     búsqueda (o, si partiste de explorar los catálogos, cómo surgieron las
-     preguntas a la vista de lo que había disponible).
-   - Catálogos y fuentes explorados (INE, ISTAC, EUROSTAT, Banco Mundial,
-     EDGAR, CLIMA, INFORME PISA u otras) y por qué te centraste en unos y no en otros.
-   - Uso de la IA en la selección: qué agentes usaste, qué les proporcionaste
-     (p. ej. el catálogo .xlsx de la fuente) y cuáles fueron las principales
-     peticiones (prompts) y respuestas. Por ejemplo: "de este catálogo, dame los
-     datasets sobre vivienda con datos por provincia", "descarta los que no
-     tengan datos de Canarias". Indica también qué propuestas de la IA
-     descartaste y por qué: la IA solo ve el índice, no los datos.
-   - Candidatos validados con los *_DatasetSelection.Rmd: cuáles cumplieron los
-     requisitos de AEDV y cuáles no (y por qué criterio fallaron).
-   - Justificación final: para cada dataset elegido, a qué pregunta(s) de
-     investigación (P1, P2...) ayuda a responder. Un dataset que no sirve para
-     ninguna pregunta sobra; una pregunta sin datos que la respalden hay que
-     reformularla.
-   El uso de la IA en esta fase se describe AQUÍ con detalle; en el Anexo I solo
-   se resume dentro de la visión global del uso de la IA en el proyecto.
+La selección asistida por IA (Hermes Agent, Claude Code CLI) partió del catálogo .xlsx del ISTAC con peticiones como «dame indicadores de vivienda por provincia», «descarta los sin datos de Canarias», «filtra frecuencia mensual 2012–2025». La IA propuso candidatos que se validaron contra los requisitos AEDV (cobertura ≥10 años, ≥4 atributos, datos para Canarias, formato descargable); todos los indicadores ISTAC cumplieron.
 
-2. BÚSQUEDA DE DATOS Y FUENTES CONSULTADAS
-   - ¿Dónde buscaste los datos? (portales open data, APIs, scraping, encuestas, etc.)
-   - Enumera todas las fuentes consultadas, aunque no las hayas usado finalmente.
-   - Para cada fuente usada, indica: nombre, organismo responsable, URL, formato
-     del fichero descargado (CSV, Excel, JSON, shapefile...) y fecha de descarga.
-   - Si los datos provienen de una API, describe brevemente cómo se accede a ella.
+Cada dataset se vincula a las preguntas de investigación:
+- **P1 y P3** (empleo-población): AFILIACIONES_ASALARIADOS, POBLACION
+- **P2** (vivienda-inversión): VIVIENDAS_INICIADAS, INVERSION_ESPANOLA_BRUTA
+- **P4** (dependencia sectorial insular): CEMENTO_VENTAS, HIDROCARBUROS_PRECIO_GASOLEO, DEFUNCIONES_CANCER (por isla)
+- **P5** (predicción ARIMA): AFILIACIONES_ASALARIADOS, IPC, HIDROCARBUROS_PRECIO_GASOLEO
 
-3. DIFICULTADES E INCIDENCIAS EN LA OBTENCIÓN DE DATOS
-   - Fuentes que encontraste pero no pudiste usar (acceso restringido, formato
-     incompatible, datos insuficientes, cobertura temporal inadecuada, etc.).
-   - Limitaciones de las fuentes seleccionadas (actualización infrecuente, posibles
-     sesgos en la recogida, cobertura geográfica parcial, etc.).
+Principales limitaciones identificadas: VIVIENDAS_INICIADAS usa ámbitos provinciales/funcionales (no estrictamente municipales); DEFUNCIONES_CANCER tiene retraso 6–12 meses; frecuencias heterogéneas (mensual, trimestral, anual, semanal) requieren homogeneización posterior.
 
-4. ANÁLISIS DE LA FIABILIDAD Y CALIDAD ESPERADA DE LAS FUENTES
-   - ¿Quién produce los datos? ¿Es un organismo oficial, una empresa privada,
-     una comunidad de voluntarios (como OpenStreetMap)?
-   - ¿Con qué frecuencia se actualizan?
-   - ¿Hay documentación metodológica disponible? ¿Cómo se recogen los datos?
-   - ¿Has encontrado discrepancias entre fuentes distintas sobre el mismo fenómeno?
+ISTAC es organismo oficial (Decreto 78/2018) con documentación metodológica por indicador. No hay discrepancias significativas con INE/Eurostat en indicadores superpuestos tras encadenamiento.
 
-5. REVISIÓN BIBLIOGRÁFICA (si procede)
-   - Menciona brevemente los artículos, informes o libros más relevantes consultados
-     para entender el contexto del problema.
-
-IMPORTANTE: En esta fase NO se describe la estructura de los datos (eso es
-Comprensión de los datos) ni se procesa ningún dato. Tampoco se incluyen gráficas.
-
-
-================================================================================
--->
+Referencias clave: ISTAC (2023) *Estructura población Canarias*; Banco de España (2022) *Informe economía Canarias*; OMS (2021) *Determinantes sociales salud entornos insulares*; ITC (2020) *Sector inmobiliario post-pandemia*; CNEG (2019) *Series temporales indicadores socioeconómicos*.
 
 
 ## Comprensión de los datos
