@@ -1111,12 +1111,11 @@ la reflexión global, sin repetirlo.
 
 | Agente | Coste | Uso principal |
 |---|---|---|
-| **Hermes Agent** (NVIDIA Nemotron 3 Ultra) | Gratuito | Orquestación del proyecto, edición de memoria, coordinación de agentes |
-| **Claude Code CLI** (Anthropic) | Suscripción Pro/Max | Desarrollo de código R, depuración, automatización CRISP-DM |
+| **Hermes Agent** | Gratuito | Orquestación del proyecto, edición de memoria, coordinación de agentes |
+| **Free Claude Code CLI** (Anthropic/alishahryar1) | Gratuito | Desarrollo de código R, depuración, automatización CRISP-DM |
 | **Claude (Sonnet 4.5)** | Gratuito | Depuración de código R y redacción de la memoria |
-| **ChatGPT (GPT-4o / o1)** | Gratuito/Plus | Consultas conceptuales, explicación de errores, brainstorming |
+| **ChatGPT (GPT-4o / o1)** | Gratuito | Consultas conceptuales, explicación de errores, brainstorming |
 | **Nemotron 3 Ultra** (NVIDIA) | Gratuito | Razonamiento complejo, planificación, análisis crítico |
-| **GitHub Copilot** | Licencia estudiante | Autocompletado de código en RStudio |
 | **Gemini** | Gratuito | Búsqueda de información sobre el dominio del proyecto |
 
 ## Modelos Gratuitos usados con las herramientas a destacar {-}
