@@ -438,6 +438,7 @@ kable(
   column_spec(5, extra_css = "text-align: center;")
 ```
 
+
 El proyecto se relaciona directamente con **ODS 8 (Trabajo decente y crecimiento económico)** como relación **Alta**, al analizar la evolución del empleo asalariado (AFILIACIONES_ASALARIADOS) a nivel municipal en Canarias, su recuperación tras las crisis de 2008 y 2020, y su vínculo con la dinámica poblacional. **ODS 3 (Salud y bienestar)** también tiene relación **Alta** mediante el análisis de defunciones por cáncer (DEFUNCIONES_CANCER) por isla, permitiendo identificar disparidades territoriales en mortalidad oncológica. 
 
 Con relación **Media**: **ODS 1 (Fin de la pobreza)** — el empleo es el principal determinante de la renta familiar; **ODS 7 (Energía asequible)** — serie de precios del gasóleo (HIDROCARBUROS_PRECIO_GASOLEO) como indicador de costes energéticos y movilidad; **ODS 9 (Industria, innovación e infraestructura)** — ventas de cemento (CEMENTO_VENTAS) y viviendas iniciadas (VIVIENDAS_INICIADAS) reflejan actividad constructora e infraestructura residencial; **ODS 10 (Reducción de desigualdades)** — el análisis municipal revela brechas intrainsulares en empleo y población; **ODS 11 (Ciudades y comunidades sostenibles)** — dinámica vivienda-población y presión residencial en municipios turísticos. **ODS 13 (Acción por el clima)** tiene relación **Baja** indirecta a través del precio de carburantes como proxy de intensidad de carbono en el transporte.
