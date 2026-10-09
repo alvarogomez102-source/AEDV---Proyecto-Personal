@@ -807,6 +807,9 @@ data |>
 
 </div>
 
+<div class="metodo">
+<strong class="bloque-titulo">Validación AEDV de los indicadores ISTAC</strong>
+
 ## Validación de requisitos AEDV
 
 ```{r, echo=FALSE}
@@ -924,6 +927,8 @@ tb_val |>
 De los **`r n_total`** indicadores seleccionados, **`r n_validos`** cumplen los tres criterios de validación (cobertura geográfica, datos actualizados y tamaño de las series temporales).
 
 El requisito de disponer de al menos 4 atributos válidos `r if(n_validos >= 4) "**se cumple ✓**" else paste0("**no se cumple ✗** — con la selección actual faltan ", 4 - n_validos, " indicador(es) válido(s) para alcanzar el mínimo de 4")`.
+
+</div>
 
 ## Preparación de los datos
 
