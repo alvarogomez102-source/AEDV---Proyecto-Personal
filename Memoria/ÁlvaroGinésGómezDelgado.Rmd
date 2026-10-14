@@ -238,15 +238,17 @@ convincente el resto del proyecto.
 
 **Preguntas de investigación:**
 
-  - **P1:** ¿Se ha recuperado el empleo en Canarias tras la crisis de 2008 al mismo ritmo que en el resto de comunidades? ¿Qué municipios/islas muestran mayor rezago?
+  - **P1:** ¿Cómo ha variado el ritmo de recuperación del empleo asalariado entre municipios e islas de Canarias desde 2012, y qué territorios muestran mayor rezago en la recuperación del nivel de empleo previo a la crisis post-2012? ¿Existen patrones diferenciados de tendencia y estacionalidad entre islas capitalinas y no capitalinas (STL)?
   
   - **P2:** ¿Qué relación existe entre la evolución de la vivienda iniciada y la inversión bruta en Canarias vs. España? ¿Hay desajuste oferta-demanda?
   
   - **P3:** ¿Cómo ha evolucionado la dinámica empleo-población a nivel municipal en Canarias (2012–2025)? ¿Hay municipios en declive demográfico con empleo creciente o viceversa?
   
-  - **P4:** ¿Qué islas dependen más de un solo sector (construcción/turismo) y cómo afectó esa dependencia a su resiliencia económica tras 2008 y 2020?
+  - **P4:** ¿Hasta qué punto la actividad constructora (proxy: ventas de cemento) explica la evolución del empleo asalariado en cada isla, y qué islas muestran mayor acoplamiento construcción-empleo medido mediante correlación cruzada y análisis de sincronía cíclica 2009–2026? ¿Qué grupos de islas comparten estructura económica similar según PCA sobre series insulares de cemento, empleo y precio del gasóleo, y cómo se relacionan con la resiliencia tras 2012 y 2020?
   
   - **P5:** ¿Qué nivel de afiliaciones/empleo cabe esperar en los próximos dos años según modelos ARIMA? ¿Y el IPC y el precio del gasóleo?
+  
+  - **P6:** ¿Cómo ha evolucionado la mortalidad por cáncer en las islas canarias (1999–2024), qué islas presentan tasas estandarizadas más altas y existe asociación entre la tendencia de mortalidad oncológica y los indicadores socioeconómicos insulares (empleo, construcción, precios energía)? ¿La descomposición STL revela cambios de tendencia coincidentes con crisis económicas (2008, 2012, 2020)?
 
 <!--
 PROPÓSITO: Declarar con claridad qué quieres lograr con este proyecto.
@@ -526,7 +528,7 @@ Es importante observar que esta metodología es **iterativa**: los resultados ob
 
 ## Comprensión del negocio
 
-El proyecto nace de mi experiencia directa con la volatilidad del mercado laboral y la presión sobre la vivienda en Canarias (resido en Las Palmas de Gran Canaria). Las preguntas de investigación (P1–P5) buscan analizar la evolución conjunta de empleo, vivienda, demografía y sectores productivos (1999–2026) para detectar patrones de convergencia/divergencia interna y respecto a España, y construir modelos predictivos de corto plazo.
+El proyecto nace de mi experiencia directa con la volatilidad del mercado laboral y la presión sobre la vivienda en Canarias (resido en Las Palmas de Gran Canaria). Las preguntas de investigación (P1–P6) buscan analizar la evolución conjunta de empleo, vivienda, demografía y sectores productivos (1999–2026) para detectar patrones de convergencia/divergencia interna y respecto a España, y construir modelos predictivos de corto plazo.
 
 Para responderlas, se evaluaron catálogos abiertos (INE, Eurostat, Banco Mundial, ISTAC). Se priorizó **ISTAC** por ofrecer los ocho indicadores necesarios —empleo, vivienda, construcción, inversión, población, salud, precios, energía— con cobertura municipal/islas/CCAA y series homogéneas 1999–2026, permitiendo un análisis multiescalar integrado que otras fuentes no proporcionan.
 
@@ -534,10 +536,11 @@ La selección asistida por IA (Hermes Agent, Claude Code CLI) partió del catál
 
 Cada dataset se vincula a las preguntas de investigación:
 
-- **P1 y P3** (empleo-población): AFILIACIONES_ASALARIADOS, POBLACION
-- **P2** (vivienda-inversión): VIVIENDAS_INICIADAS, INVERSION_ESPANOLA_BRUTA
-- **P4** (dependencia sectorial insular): CEMENTO_VENTAS, HIDROCARBUROS_PRECIO_GASOLEO, DEFUNCIONES_CANCER (por isla)
+- **P1 y P3** (empleo-población municipal/insular): AFILIACIONES_ASALARIADOS, POBLACION
+- **P2** (vivienda-inversión CCAA): VIVIENDAS_INICIADAS, INVERSION_ESPANOLA_BRUTA
+- **P4** (estructura económica insular: construcción-empleo): CEMENTO_VENTAS, AFILIACIONES_ASALARIADOS (agregado a isla), HIDROCARBUROS_PRECIO_GASOLEO
 - **P5** (predicción ARIMA): AFILIACIONES_ASALARIADOS, IPC, HIDROCARBUROS_PRECIO_GASOLEO
+- **P6** (salud insular - mortalidad cáncer): DEFUNCIONES_CANCER, POBLACION (denominador tasas), covariables insulares (cemento, empleo, gasóleo)
 
 
 Principales limitaciones identificadas: VIVIENDAS_INICIADAS usa ámbitos provinciales/funcionales (no estrictamente municipales); DEFUNCIONES_CANCER tiene retraso 6–12 meses; frecuencias heterogéneas (mensual, trimestral, anual, semanal) requieren homogeneización posterior.
@@ -748,7 +751,7 @@ data |> print(n=5)
 
 </div>
 
-## Información sobre las columnas de la tabla descargada
+#### Información sobre las columnas de la tabla descargada
 
 Se presentan las diferentes dimensiones, cada una con sus valores posibles y el nº de observaciones.
 
@@ -784,7 +787,7 @@ for(col in colnames(data)){
 }
 ```
 
-## Regiones y número de observaciones
+#### Regiones y número de observaciones
 
 <div class="caja-scroll">
 
@@ -805,7 +808,7 @@ data |>
 <div class="metodo">
 <strong class="bloque-titulo">Validación AEDV de los indicadores ISTAC</strong>
 
-## Validación de requisitos AEDV
+#### Validación de requisitos AEDV
 
 ```{r, echo=FALSE}
 # --- DETECCIÓN DE LA FRECUENCIA ----------------------------------------------
@@ -1169,7 +1172,7 @@ ESTRUCTURA RECOMENDADA:
    - ¿Se ha alcanzado? ¿Parcialmente? ¿No se ha podido alcanzar?
    - ¿Cuál es el resultado concreto obtenido para ese objetivo?
    Esta correspondencia explícita objetivo→resultado es el núcleo de las conclusiones.
-   Responde también, una a una, a las preguntas de investigación (P1, P2...)
+   Responde también, una a una, a las preguntas de investigación (P1, P2, P3, P4, P5, P6)
    planteadas en "Objetivos", con la respuesta concreta que dan tus datos.
 
 2. HALLAZGOS MÁS RELEVANTES

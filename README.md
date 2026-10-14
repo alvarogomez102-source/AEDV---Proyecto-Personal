@@ -21,12 +21,15 @@ Análisis integrado de la dinámica socioeconómica y demográfica de Canarias m
 - **Temporal**: 1999 (defunciones cáncer) → 2026-08 (afiliaciones)
 - **Total observaciones**: ~185,000 filas combinadas
 
-## Preguntas de Investigación
-1. **P1**: ¿Se ha recuperado el empleo en Canarias tras la crisis de 2008 al mismo ritmo que en el resto de comunidades autónomas?
+## Preguntas de Investigación (reformuladas tras validación de datos)
+1. **P1**: ¿Cómo ha variado el ritmo de recuperación del empleo asalariado entre municipios e islas de Canarias desde 2012, y qué territorios muestran mayor rezago?
+   - *P1a*: ¿Existen patrones diferenciados de tendencia/estacionalidad entre islas capitalinas y no capitalinas (STL por isla)?
 2. **P2**: ¿Qué relación existe entre la evolución de la vivienda iniciada y la inversión bruta en Canarias vs. España?
 3. **P3**: ¿Cómo ha evolucionado la dinámica empleo-población a nivel municipal en Canarias (2012–2025)?
-4. **P4**: ¿Qué islas dependen más de un solo sector (construcción/turismo) y cómo afectó esa dependencia a su resiliencia económica?
-5. **P5**: ¿Qué nivel de llegadas/empleo cabe esperar en los próximos dos años según modelos ARIMA?
+4. **P4**: ¿Hasta qué punto la actividad constructora (cemento) explica el empleo asalariado en cada isla y qué islas muestran mayor acoplamiento construcción-empleo (CCF + PCA insular)?
+   - *P4a*: ¿Qué grupos de islas comparten estructura económica según PCA (cemento, empleo, gasóleo) y cómo se relaciona con resiliencia 2012/2020?
+5. **P5**: ¿Qué nivel de empleo/IPC/gasóleo cabe esperar en los próximos dos años según modelos ARIMA?
+6. **P6**: ¿Cómo ha evolucionado la mortalidad por cáncer en las islas (1999-2024) y existe asociación con indicadores socioeconómicos insulares (STL + correlación)?
 
 ## Metodología
 - **CRISP-DM** (Cross Industry Standard Process for Data Mining) — 6 fases iterativas
