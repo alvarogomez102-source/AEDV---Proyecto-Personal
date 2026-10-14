@@ -751,6 +751,8 @@ data |> print(n=5)
 
 </div>
 
+> **Nota**: Las tablas siguientes detallan exhaustivamente todas las opciones de cada variable categórica (ver *«Información sobre las columnas de la tabla descargada»* y *«Regiones y número de observaciones»*).
+
 #### Información sobre las columnas de la tabla descargada
 
 Se presentan las diferentes dimensiones, cada una con sus valores posibles y el nº de observaciones.
