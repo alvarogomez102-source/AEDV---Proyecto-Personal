@@ -612,10 +612,7 @@ tablas de conteo o gráficas de barras de frecuencias absolutas sin transformaci
 
 
 ================================================================================
--->
-
-<div class="nota">
-<strong class="bloque-titulo">Inclusión datasets </strong>
+--->
 
 ### 1. Descripción de las variables
 
@@ -712,8 +709,6 @@ El proyecto se centra en **Canarias**. Los subconjuntos relevantes son:
 ---
 
 > **Nota**: Esta sección describe los datos *tal como se descargan* de la API del ISTAC. Las decisiones de limpieza, homogeneización de frecuencias, tratamiento de NA, encadenamiento de series y fusión territorial se documentan en la fase **Preparación de los datos**.
-
-</div>
 
 ### Inclusión del dataset ISTAC en la memoria
 
