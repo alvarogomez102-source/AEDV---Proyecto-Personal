@@ -614,7 +614,7 @@ tablas de conteo o gráficas de barras de frecuencias absolutas sin transformaci
 ================================================================================
 --->
 
-### 1. Descripción de las variables
+### Descripción de las variables
 
 La API del ISTAC devuelve todos los indicadores en formato **tidy**: una fila por observación con cinco columnas estructurales.
 
@@ -641,7 +641,7 @@ La API del ISTAC devuelve todos los indicadores en formato **tidy**: una fila po
 
 ---
 
-### 2. Estructura de los datos: ¿SON TIDY?
+### Estructura de los datos: ¿SON TIDY?
 
 **Sí.** Cada fila = una observación única (territorio × indicador × periodo).  
 No hay columnas anchas (p. ej., `2020`, `2021`, `2022`); la dimensión temporal está en `TIME`.  
@@ -650,7 +650,7 @@ La dimensión geográfica está normalizada en `GEOGRAPHICAL` + `NAME`.
 
 ---
 
-### 3. Tamaño y cobertura del dataset combinado
+### Tamaño y cobertura del dataset combinado
 
 | Métrica | Valor |
 |---------|-------|
@@ -675,7 +675,7 @@ La dimensión geográfica está normalizada en `GEOGRAPHICAL` + `NAME`.
 
 ---
 
-### 4. Atributos combinados (territorio × indicador)
+### Atributos combinados (territorio × indicador)
 
 - **MUNI (97)**: `AFILIACIONES_ASALARIADOS`, `POBLACION` → combinación completa 97 × periodos.
 - **ISLA (8)**: `CEMENTO_VENTAS`, `DEFUNCIONES_CANCER`, `HIDROCARBUROS_PRECIO_GASOLEO` → 8 × periodos cada uno.
@@ -684,7 +684,7 @@ La dimensión geográfica está normalizada en `GEOGRAPHICAL` + `NAME`.
 
 ---
 
-### 5. Análisis focalizado (municipios canarios)
+### Análisis focalizado (municipios canarios)
 
 El proyecto se centra en **Canarias**. Los subconjuntos relevantes son:
 
@@ -694,7 +694,7 @@ El proyecto se centra en **Canarias**. Los subconjuntos relevantes son:
 
 ---
 
-### 6. Problemas identificados (diagnóstico, sin decisiones)
+### Problemas identificados (diagnóstico, sin decisiones)
 
 | Problema | Indicadores afectados | Detalle |
 |----------|----------------------|---------|
