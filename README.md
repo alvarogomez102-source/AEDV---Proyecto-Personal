@@ -57,6 +57,8 @@ AEDV - ProyectoPersonal/
     ├── INE/, EUROSTAT/, WORLD_BANK/, etc.   # Otras fuentes exploradas
 ```
 
+Nota: El proyecto principal se desarrolla en la carpeta Memoria/ (ÁlvaroGinésGómezDelgado.Rmd y su HTML compilado). Los archivos en la raíz son plantillas y guías.
+
 ## Estado del Proyecto
 - ✅ Datasets seleccionados y validados (8 indicadores ISTAC, 4+ válidos AEDV)
 - ✅ Preguntas de investigación definidas (Entrega 1)
