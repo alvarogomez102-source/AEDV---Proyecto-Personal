@@ -999,36 +999,39 @@ metodológica. No lo ocultes: es parte del proceso esperado.
 
 ### Código aplicado: limpieza y transformación del dataset ISTAC
 
-El dataset combina indicadores con frecuencias y ámbitos geográficos diferentes. Por ello, se conservan las observaciones originales y se preparan variables auxiliares para analizar cada indicador respetando su periodicidad. Los valores atípicos se marcan para revisarlos, pero no se eliminan automáticamente.
+La preparación conserva una copia de trabajo de los datos originales. Como el conjunto reúne indicadores con periodicidades y coberturas geográficas diferentes, no se agregan ni se comparan directamente series de frecuencias distintas. El análisis temporal de la Entrega 2 se centrará en la serie mensual de `AFILIACIONES_ASALARIADOS` para `Las Palmas de Gran Canaria`; el resto de indicadores se mantiene en el conjunto preparado para los análisis exploratorios previstos.
+
+#### 1. Tipos, fechas y variables derivadas
+
+Se normalizan los tipos de las variables identificativas, se convierte `VALUE` a numérico y se obtiene una fecha de referencia para cada periodo. Para los datos trimestrales, semestrales, mensuales y anuales se utiliza el primer día del periodo como fecha de referencia; esto permite ordenar y representar los periodos, pero no convierte las frecuencias en equivalentes. Se añaden año, mes y trimestre cuando pueden interpretarse. Los periodos que no puedan convertirse se conservan en la tabla original de trabajo y se contabilizan en las comprobaciones de calidad.
 
 ```{r preparacion-datos, echo=TRUE}
 # Copia de trabajo: se conserva `data` sin modificar.
 datos_preparados <- data |>
   mutate(
     GEOGRAPHICAL = as.character(GEOGRAPHICAL),
-    NAME         = as.character(NAME),
-    INDICATOR    = as.character(INDICATOR),
-    TIME         = as.character(TIME),
-    VALUE        = suppressWarnings(as.numeric(VALUE)),
-    frecuencia   = classify_time(TIME),
-    anio         = suppressWarnings(as.integer(substr(TIME, 1, 4)))
+    NAME = as.character(NAME),
+    INDICATOR = as.character(INDICATOR),
+    TIME = as.character(TIME),
+    VALUE = suppressWarnings(as.numeric(VALUE)),
+    frecuencia = classify_time(TIME),
+    anio = suppressWarnings(as.integer(substr(TIME, 1, 4)))
   )
 
-# Convertir TIME a una fecha de referencia según la frecuencia.
-# IMPORTANTE: case_when() evalúa todas las expresiones de la derecha,
-# aunque la condición no corresponda a esa fila. Por eso usamos una función
-# fila a fila y formatos explícitos, evitando errores charToDate() en periodos
-# como "2020-Q1" cuando se intenta interpretarlos como meses o días.
+# Fecha de referencia: inicio del periodo correspondiente.
 fecha_referencia <- function(t, f) {
   if (is.na(t) || is.na(f) || f == "otro") return(as.Date(NA))
-
   anio_t <- suppressWarnings(as.integer(substr(t, 1, 4)))
   if (is.na(anio_t)) return(as.Date(NA))
 
-  if (f == "Y") return(as.Date(sprintf("%04d-01-01", anio_t), format = "%Y-%m-%d"))
+  if (f == "Y") return(as.Date(paste0(anio_t, "-01-01")))
 
   if (f == "M") {
-    mes_txt <- if (grepl("^[0-9]{4}M[0-9]{2}$", t)) sub("^([0-9]{4})M([0-9]{2})$", "\\1-\\2", t) else substr(t, 1, 7)
+    if (grepl("^[0-9]{4}M[0-9]{2}$", t)) {
+      mes_txt <- sub("^([0-9]{4})M([0-9]{2})$", "\\1-\\2", t)
+    } else {
+      mes_txt <- substr(t, 1, 7)
+    }
     return(as.Date(paste0(mes_txt, "-01"), format = "%Y-%m-%d"))
   }
 
@@ -1036,18 +1039,16 @@ fecha_referencia <- function(t, f) {
     trimestre <- as.integer(sub(".*([1-4])$", "\\1", t))
     if (is.na(trimestre) || trimestre < 1 || trimestre > 4) return(as.Date(NA))
     mes <- 1L + (trimestre - 1L) * 3L
-    return(as.Date(sprintf("%04d-%02d-01", anio_t, mes), format = "%Y-%m-%d"))
+    return(as.Date(sprintf("%04d-%02d-01", anio_t, mes)))
   }
 
   if (f == "S") {
     mes <- if (grepl("S1$", t)) 1L else 7L
-    return(as.Date(sprintf("%04d-%02d-01", anio_t, mes), format = "%Y-%m-%d"))
+    return(as.Date(sprintf("%04d-%02d-01", anio_t, mes)))
   }
 
   if (f == "D") {
-    if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", t)) {
-      return(as.Date(t, format = "%Y-%m-%d"))
-    }
+    if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", t)) return(as.Date(t))
     if (grepl("^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$", t)) {
       return(as.Date(t, format = "%d/%m/%Y"))
     }
@@ -1056,8 +1057,7 @@ fecha_referencia <- function(t, f) {
   if (f == "W") {
     semana <- as.integer(sub(".*W", "", t))
     if (is.na(semana) || semana < 1 || semana > 53) return(as.Date(NA))
-    # Lunes de la semana ISO 1: la semana que contiene el 4 de enero.
-    cuatro_enero <- as.Date(sprintf("%04d-01-04", anio_t), format = "%Y-%m-%d")
+    cuatro_enero <- as.Date(sprintf("%04d-01-04", anio_t))
     lunes_semana_1 <- cuatro_enero - (as.integer(format(cuatro_enero, "%u")) - 1L)
     return(lunes_semana_1 + (semana - 1L) * 7L)
   }
@@ -1067,21 +1067,25 @@ fecha_referencia <- function(t, f) {
 
 datos_preparados <- datos_preparados |>
   mutate(
-    fecha = as.Date(unlist(Map(fecha_referencia, TIME, frecuencia)), origin = "1970-01-01")
+    fecha = as.Date(unlist(Map(fecha_referencia, TIME, frecuencia)),
+                    origin = "1970-01-01"),
+    mes = if_else(frecuencia == "M", as.integer(format(fecha, "%m")), NA_integer_),
+    trimestre = if_else(frecuencia == "Q",
+                        as.integer(sub(".*([1-4])$", "\\1", TIME)),
+                        NA_integer_)
   )
 
-# Revisar duplicados de la clave esperada: territorio × indicador × periodo.
+# Comprobaciones de calidad: no se borran filas de forma automática.
 duplicados_clave <- datos_preparados |>
   count(GEOGRAPHICAL, INDICATOR, TIME, name = "n") |>
   filter(n > 1)
 
-# Resumen de ausencias y fechas no interpretadas.
 resumen_calidad <- tibble::tibble(
   comprobacion = c(
-    "Filas originales",
+    "Filas originales y preparadas",
     "VALUE ausente o no numérico",
     "TIME sin fecha interpretable",
-    "Claves duplicadas"
+    "Claves territorio-indicador-periodo duplicadas"
   ),
   resultado = c(
     nrow(datos_preparados),
@@ -1091,36 +1095,48 @@ resumen_calidad <- tibble::tibble(
   )
 )
 
-knitr::kable(resumen_calidad, caption = "Comprobaciones iniciales de calidad")
+knitr::kable(resumen_calidad, caption = "Comprobaciones de calidad tras la preparación")
 
-# Resumen del universo analítico: combinaciones territorio-indicador-periodo.
 resumen_combinaciones <- datos_preparados |>
   summarise(
     filas = n(),
     indicadores = n_distinct(INDICATOR),
     territorios = n_distinct(GEOGRAPHICAL),
-    combinaciones_territorio_indicador = n_distinct(paste(GEOGRAPHICAL, INDICATOR, sep = "__")),
-    periodos = n_distinct(TIME),
-    fecha_inicial = min(fecha, na.rm = TRUE),
-    fecha_final = max(fecha, na.rm = TRUE)
+    combinaciones_territorio_indicador =
+      n_distinct(paste(GEOGRAPHICAL, INDICATOR, sep = "__")),
+    periodos_distintos = n_distinct(TIME),
+    fecha_inicial = if (all(is.na(fecha))) as.Date(NA) else min(fecha, na.rm = TRUE),
+    fecha_final = if (all(is.na(fecha))) as.Date(NA) else max(fecha, na.rm = TRUE)
   )
+
 knitr::kable(resumen_combinaciones, caption = "Cobertura del conjunto preparado")
 ```
 
-**Selección y filtrado.** Para el análisis temporal principal se selecciona `AFILIACIONES_ASALARIADOS`, frecuencia mensual y el territorio `Las Palmas de Gran Canaria`, por ser una serie directamente relacionada con P1 y P5 y permitir una validación temporal homogénea. No se mezclan frecuencias mensuales, trimestrales y anuales en una misma serie. El periodo efectivo lo determinan las fechas publicadas por ISTAC; no se fuerza un inicio o final común para indicadores distintos. En esta entrega no se eliminan categorías del conjunto maestro: los filtros se aplican en cada análisis específico. Las combinaciones sin observaciones no se pueden reconstruir a partir de una descarga que solo contiene periodos publicados; se identifican como huecos al construir el calendario de cada serie.
+#### 2. Selección, combinaciones y periodo de estudio
+
+Para el análisis temporal principal se selecciona `AFILIACIONES_ASALARIADOS`, con frecuencia mensual y territorio `Las Palmas de Gran Canaria`, por su relación directa con las preguntas sobre evolución del empleo y predicción. Se utilizarán los periodos mensuales realmente publicados por ISTAC; no se fija artificialmente un intervalo común a todos los indicadores. El filtrado específico se aplica al crear la serie de modelado, no al conjunto maestro, para evitar eliminar datos que pueden ser útiles en otros análisis.
+
+La combinación principal queda definida por **indicador × territorio × periodo**. El código anterior cuantifica las combinaciones observadas. Una combinación que no aparece en la descarga no puede distinguirse automáticamente entre ausencia de publicación y ausencia real de datos; para la serie mensual seleccionada se comprobará el calendario completo antes de modelar.
+
+#### 3. Valores ausentes e inconsistencias
+
+No se eliminan filas de manera general por contener `VALUE` ausente, ya que la ausencia puede afectar a indicadores y periodos distintos. Tampoco se sustituyen automáticamente los valores ausentes por cero: cero es un valor observado y no equivale a un dato desconocido. Los valores no numéricos y las fechas no interpretables se contabilizan para poder revisarlos. Las claves duplicadas se identifican, pero no se agregan sin comprobar antes si representan registros repetidos o categorías legítimamente distintas.
+
+Para la serie temporal mensual, los huecos solo se evaluarán después de filtrar indicador y territorio y de construir su calendario mensual. La interpolación lineal con `zoo::na.approx()` no se aplica al conjunto completo: podría crear valores artificiales en series con distinta frecuencia o en periodos sin publicación. Si se utiliza en la serie seleccionada, se documentará como una aproximación y se comprobará que no se extrapolan extremos.
+
+#### 4. Valores atípicos
+
+Se utiliza el criterio del rango intercuartílico (IQR) para **marcar posibles valores atípicos por indicador**, no para eliminarlos. En series económicas, los extremos pueden corresponder a cambios reales (por ejemplo, crisis o recuperación) y eliminarlos sin verificación podría sesgar la evolución temporal. El criterio es exploratorio: un valor marcado debe contrastarse con la serie y la fuente antes de considerarlo un error.
 
 ```{r preparacion-outliers, echo=TRUE}
-# Marcar posibles valores atípicos por indicador mediante el criterio IQR.
-# No se eliminan: en las series económicas los picos pueden ser reales.
 datos_preparados <- datos_preparados |>
   group_by(INDICATOR) |>
   mutate(
     q1 = quantile(VALUE, 0.25, na.rm = TRUE, names = FALSE),
     q3 = quantile(VALUE, 0.75, na.rm = TRUE, names = FALSE),
     rango_iqr = IQR(VALUE, na.rm = TRUE),
-    posible_outlier = !is.na(VALUE) &
-      (VALUE < q1 - 1.5 * rango_iqr |
-       VALUE > q3 + 1.5 * rango_iqr)
+    posible_outlier = !is.na(VALUE) & rango_iqr > 0 &
+      (VALUE < q1 - 1.5 * rango_iqr | VALUE > q3 + 1.5 * rango_iqr)
   ) |>
   ungroup()
 
@@ -1132,33 +1148,44 @@ resumen_outliers <- datos_preparados |>
     posibles_atipicos = sum(posible_outlier, na.rm = TRUE),
     .groups = "drop"
   ) |>
-  arrange(desc(posibles_atipicos))
+  arrange(desc(posibles_atipicos)) |>
+  select(INDICATOR, observaciones, ausentes, posibles_atipicos) |>
+  slice(1:10)
 
 knitr::kable(resumen_outliers, digits = 0,
-             caption = "Valores ausentes y posibles atípicos por indicador")
+             caption = "Primeros 10 indicadores: ausencias y posibles valores atípicos")
 ```
 
+#### 5. Formato, transformación y visualización exploratoria
+
+Los datos descargados ya están en formato largo (*tidy*), con una fila por observación; por ello no se necesita `pivot_longer()` ni `pivot_wider()` en el conjunto maestro. `TIME` se conserva como identificador original y `fecha` se utiliza para ordenar y graficar. No se aplica normalización ni transformación matemática en esta fase, porque los indicadores tienen unidades distintas y el modelado temporal se realiza sobre una serie cada vez.
+
 ```{r preparacion-grafica, echo=TRUE, fig.width=9, fig.height=5}
-# Gráfica exploratoria de los indicadores mensuales.
 datos_preparados |>
-  filter(frecuencia == "M",
-         INDICATOR %in% c("AFILIACIONES_ASALARIADOS",
-                          "CEMENTO_VENTAS",
-                          "VIVIENDAS_INICIADAS",
-                          "IPC")) |>
+  filter(
+    frecuencia == "M",
+    INDICATOR %in% c("AFILIACIONES_ASALARIADOS",
+                     "CEMENTO_VENTAS",
+                     "VIVIENDAS_INICIADAS",
+                     "IPC"),
+    !is.na(fecha),
+    !is.na(VALUE)
+  ) |>
   ggplot(aes(x = fecha, y = VALUE)) +
-  geom_line(na.rm = TRUE) +
+  geom_line() +
   facet_wrap(~ INDICATOR, scales = "free_y") +
   labs(
-    title = "Evolución de los indicadores mensuales",
+    title = "Evolución exploratoria de los indicadores mensuales",
+    subtitle = "Series en sus unidades originales; escalas verticales independientes",
     x = "Fecha",
     y = "Valor observado"
   ) +
-  theme_minimal()
+  theme_bw(base_size = 12)
 ```
 
-**Decisiones de preparación.** Los datos ya están en formato largo (*tidy*), por lo que no se aplica `pivot_longer()` ni `pivot_wider()` al dataset completo. No se interpolan automáticamente los huecos: la API omite periodos sin publicación y las series tienen frecuencias distintas. La interpolación con `zoo::na.approx()` se reservará para una serie temporal concreta, después de verificar su calendario. Los posibles valores atípicos se mantienen hasta confirmar si son errores o episodios reales. La unión de indicadores se realizará solo cuando compartan claves geográficas y temporales compatibles.
+#### 6. Combinación de tablas e iteración CRISP-DM
 
+En esta fase no se hace un `join` entre indicadores diferentes, porque sus claves temporales, frecuencias y ámbitos geográficos no son necesariamente compatibles. Para comprobar huecos de la serie mensual de empleo se utilizará un calendario mensual y una unión `left_join()` por `fecha`, una vez filtrados indicador y territorio. Si en la fase de modelado o evaluación se detecta que una transformación o un tratamiento de ausencias cambia el comportamiento de los resultados, se volverá a documentar aquí el cambio y su justificación.
 
 ## Modelado
 
