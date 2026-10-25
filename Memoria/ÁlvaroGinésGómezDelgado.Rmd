@@ -1639,6 +1639,196 @@ bind_rows(partes) |>
 
 ---
 
+### Código aplicado: limpieza y transformación del dataset ISTAC
+
+La preparación conserva una copia de trabajo de los datos originales. Como el conjunto reúne indicadores con periodicidades y coberturas geográficas diferentes, no se agregan ni se comparan directamente series de frecuencias distintas. El análisis temporal de la Entrega 2 se centrará en la serie mensual de `AFILIACIONES_ASALARIADOS` para `Las Palmas de Gran Canaria`; el resto de indicadores se mantiene en el conjunto preparado para los análisis exploratorios previstos.
+
+#### 1. Tipos, fechas y variables derivadas
+
+Se normalizan los tipos de las variables identificativas, se convierte `VALUE` a numérico y se obtiene una fecha de referencia para cada periodo. Para los datos trimestrales, semestrales, mensuales y anuales se utiliza el primer día del periodo como fecha de referencia; esto permite ordenar y representar los periodos, pero no convierte las frecuencias en equivalentes. Se añaden año, mes y trimestre cuando pueden interpretarse. Los periodos que no puedan convertirse se conservan en la tabla original de trabajo y se contabilizan en las comprobaciones de calidad.
+
+```{r preparacion-datos, echo=TRUE}
+# Copia de trabajo: se conserva `data` sin modificar.
+datos_preparados <- data |>
+  mutate(
+    GEOGRAPHICAL = as.character(GEOGRAPHICAL),
+    NAME = as.character(NAME),
+    INDICATOR = as.character(INDICATOR),
+    TIME = as.character(TIME),
+    VALUE = suppressWarnings(as.numeric(VALUE)),
+    frecuencia = classify_time(TIME),
+    anio = suppressWarnings(as.integer(substr(TIME, 1, 4)))
+  )
+
+# Fecha de referencia: inicio del periodo correspondiente.
+fecha_referencia <- function(t, f) {
+  if (is.na(t) || is.na(f) || f == "otro") return(as.Date(NA))
+  anio_t <- suppressWarnings(as.integer(substr(t, 1, 4)))
+  if (is.na(anio_t)) return(as.Date(NA))
+
+  if (f == "Y") return(as.Date(paste0(anio_t, "-01-01")))
+
+  if (f == "M") {
+    if (grepl("^[0-9]{4}M[0-9]{2}$", t)) {
+      mes_txt <- sub("^([0-9]{4})M([0-9]{2})$", "\\1-\\2", t)
+    } else {
+      mes_txt <- substr(t, 1, 7)
+    }
+    return(as.Date(paste0(mes_txt, "-01"), format = "%Y-%m-%d"))
+  }
+
+  if (f == "Q") {
+    trimestre <- as.integer(sub(".*([1-4])$", "\\1", t))
+    if (is.na(trimestre) || trimestre < 1 || trimestre > 4) return(as.Date(NA))
+    mes <- 1L + (trimestre - 1L) * 3L
+    return(as.Date(sprintf("%04d-%02d-01", anio_t, mes)))
+  }
+
+  if (f == "S") {
+    mes <- if (grepl("S1$", t)) 1L else 7L
+    return(as.Date(sprintf("%04d-%02d-01", anio_t, mes)))
+  }
+
+  if (f == "D") {
+    if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", t)) return(as.Date(t))
+    if (grepl("^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$", t)) {
+      return(as.Date(t, format = "%d/%m/%Y"))
+    }
+  }
+
+  if (f == "W") {
+    semana <- as.integer(sub(".*W", "", t))
+    if (is.na(semana) || semana < 1 || semana > 53) return(as.Date(NA))
+    cuatro_enero <- as.Date(sprintf("%04d-01-04", anio_t))
+    lunes_semana_1 <- cuatro_enero - (as.integer(format(cuatro_enero, "%u")) - 1L)
+    return(lunes_semana_1 + (semana - 1L) * 7L)
+  }
+
+  as.Date(NA)
+}
+
+datos_preparados <- datos_preparados |>
+  mutate(
+    fecha = as.Date(unlist(Map(fecha_referencia, TIME, frecuencia)),
+                    origin = "1970-01-01"),
+    mes = if_else(frecuencia == "M", as.integer(format(fecha, "%m")), NA_integer_),
+    trimestre = if_else(frecuencia == "Q",
+                        as.integer(sub(".*([1-4])$", "\\1", TIME)),
+                        NA_integer_)
+  )
+
+# Comprobaciones de calidad: no se borran filas de forma automática.
+duplicados_clave <- datos_preparados |>
+  count(GEOGRAPHICAL, INDICATOR, TIME, name = "n") |>
+  filter(n > 1)
+
+resumen_calidad <- tibble::tibble(
+  comprobacion = c(
+    "Filas originales y preparadas",
+    "VALUE ausente o no numérico",
+    "TIME sin fecha interpretable",
+    "Claves territorio-indicador-periodo duplicadas"
+  ),
+  resultado = c(
+    nrow(datos_preparados),
+    sum(is.na(datos_preparados$VALUE)),
+    sum(is.na(datos_preparados$fecha)),
+    nrow(duplicados_clave)
+  )
+)
+
+knitr::kable(resumen_calidad, caption = "Comprobaciones de calidad tras la preparación")
+
+resumen_combinaciones <- datos_preparados |>
+  summarise(
+    filas = n(),
+    indicadores = n_distinct(INDICATOR),
+    territorios = n_distinct(GEOGRAPHICAL),
+    combinaciones_territorio_indicador =
+      n_distinct(paste(GEOGRAPHICAL, INDICATOR, sep = "__")),
+    periodos_distintos = n_distinct(TIME),
+    fecha_inicial = if (all(is.na(fecha))) as.Date(NA) else min(fecha, na.rm = TRUE),
+    fecha_final = if (all(is.na(fecha))) as.Date(NA) else max(fecha, na.rm = TRUE)
+  )
+
+knitr::kable(resumen_combinaciones, caption = "Cobertura del conjunto preparado")
+```
+
+#### 2. Selección, combinaciones y periodo de estudio
+
+Para el análisis temporal principal se selecciona `AFILIACIONES_ASALARIADOS`, con frecuencia mensual y territorio `Las Palmas de Gran Canaria`, por su relación directa con las preguntas sobre evolución del empleo y predicción. Se utilizarán los periodos mensuales realmente publicados por ISTAC; no se fija artificialmente un intervalo común a todos los indicadores. El filtrado específico se aplica al crear la serie de modelado, no al conjunto maestro, para evitar eliminar datos que pueden ser útiles en otros análisis.
+
+La combinación principal queda definida por **indicador × territorio × periodo**. El código anterior cuantifica las combinaciones observadas. Una combinación que no aparece en la descarga no puede distinguirse automáticamente entre ausencia de publicación y ausencia real de datos; para la serie mensual seleccionada se comprobará el calendario completo antes de modelar.
+
+#### 3. Valores ausentes e inconsistencias
+
+No se eliminan filas de manera general por contener `VALUE` ausente, ya que la ausencia puede afectar a indicadores y periodos distintos. Tampoco se sustituyen automáticamente los valores ausentes por cero: cero es un valor observado y no equivale a un dato desconocido. Los valores no numéricos y las fechas no interpretables se contabilizan para poder revisarlos. Las claves duplicadas se identifican, pero no se agregan sin comprobar antes si representan registros repetidos o categorías legítimamente distintas.
+
+Para la serie temporal mensual, los huecos solo se evaluarán después de filtrar indicador y territorio y de construir su calendario mensual. La interpolación lineal con `zoo::na.approx()` no se aplica al conjunto completo: podría crear valores artificiales en series con distinta frecuencia o en periodos sin publicación. Si se utiliza en la serie seleccionada, se documentará como una aproximación y se comprobará que no se extrapolan extremos.
+
+#### 4. Valores atípicos
+
+Se utiliza el criterio del rango intercuartílico (IQR) para **marcar posibles valores atípicos por indicador**, no para eliminarlos. En series económicas, los extremos pueden corresponder a cambios reales (por ejemplo, crisis o recuperación) y eliminarlos sin verificación podría sesgar la evolución temporal. El criterio es exploratorio: un valor marcado debe contrastarse con la serie y la fuente antes de considerarlo un error.
+
+```{r preparacion-outliers, echo=TRUE}
+datos_preparados <- datos_preparados |>
+  group_by(INDICATOR) |>
+  mutate(
+    q1 = quantile(VALUE, 0.25, na.rm = TRUE, names = FALSE),
+    q3 = quantile(VALUE, 0.75, na.rm = TRUE, names = FALSE),
+    rango_iqr = IQR(VALUE, na.rm = TRUE),
+    posible_outlier = !is.na(VALUE) & rango_iqr > 0 &
+      (VALUE < q1 - 1.5 * rango_iqr | VALUE > q3 + 1.5 * rango_iqr)
+  ) |>
+  ungroup()
+
+resumen_outliers <- datos_preparados |>
+  group_by(INDICATOR) |>
+  summarise(
+    observaciones = n(),
+    ausentes = sum(is.na(VALUE)),
+    posibles_atipicos = sum(posible_outlier, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(posibles_atipicos)) |>
+  select(INDICATOR, observaciones, ausentes, posibles_atipicos) |>
+  slice(1:10)
+
+knitr::kable(resumen_outliers, digits = 0,
+             caption = "Primeros 10 indicadores: ausencias y posibles valores atípicos")
+```
+
+#### 5. Formato, transformación y visualización exploratoria
+
+Los datos descargados ya están en formato largo (*tidy*), con una fila por observación; por ello no se necesita `pivot_longer()` ni `pivot_wider()` en el conjunto maestro. `TIME` se conserva como identificador original y `fecha` se utiliza para ordenar y graficar. No se aplica normalización ni transformación matemática en esta fase, porque los indicadores tienen unidades distintas y el modelado temporal se realiza sobre una serie cada vez.
+
+```{r preparacion-grafica, echo=TRUE, fig.width=9, fig.height=5}
+datos_preparados |>
+  filter(
+    frecuencia == "M",
+    INDICATOR %in% c("AFILIACIONES_ASALARIADOS",
+                     "CEMENTO_VENTAS",
+                     "VIVIENDAS_INICIADAS",
+                     "IPC"),
+    !is.na(fecha),
+    !is.na(VALUE)
+  ) |>
+  ggplot(aes(x = fecha, y = VALUE)) +
+  geom_line() +
+  facet_wrap(~ INDICATOR, scales = "free_y") +
+  labs(
+    title = "Evolución exploratoria de los indicadores mensuales",
+    subtitle = "Series en sus unidades originales; escalas verticales independientes",
+    x = "Fecha",
+    y = "Valor observado"
+  ) +
+  theme_bw(base_size = 12)
+```
+
+#### 6. Combinación de tablas e iteración CRISP-DM
+
+En esta fase no se hace un `join` entre indicadores diferentes, porque sus claves temporales, frecuencias y ámbitos geográficos no son necesariamente compatibles. Para comprobar huecos de la serie mensual de empleo se utilizará un calendario mensual y una unión `left_join()` por `fecha`, una vez filtrados indicador y territorio. Si en la fase de modelado o evaluación se detecta que una transformación o un tratamiento de ausencias cambia el comportamiento de los resultados, se volverá a documentar aquí el cambio y su justificación.
+
 ## Modelado
 
 Esta fase aplica las técnicas de series temporales del Tema 5 (paquete `fpp3`: `tsibble`, `fable`, `feasts`) para responder a las preguntas P1–P6. Todos los resultados que se muestran se calculan en los chunks de esta sección: no hay cifras escritas a mano.
@@ -1856,6 +2046,114 @@ cancer_ts |>
 
 ---
 
+### Código aplicado: modelado de series temporales
+
+En la Entrega 2 el modelado se centra en series temporales; el análisis multivariante de atributos (correlación, regresión y PCA) se reserva para la Entrega 3. Se toma como serie principal el indicador mensual de afiliaciones asalariadas de Las Palmas de Gran Canaria. Se reserva el último año disponible para evaluar las predicciones fuera de muestra. Si no hay suficientes observaciones, el código informa de ello en lugar de ajustar un modelo poco fiable.
+
+```{r modelado-arima, echo=TRUE, fig.width=9, fig.height=5}
+# Serie mensual de empleo para Las Palmas de Gran Canaria.
+serie_empleo <- datos_preparados |>
+  filter(
+    INDICATOR == "AFILIACIONES_ASALARIADOS",
+    frecuencia == "M",
+    NAME == "Las Palmas de Gran Canaria",
+    !is.na(fecha),
+    !is.na(VALUE)
+  ) |>
+  group_by(fecha) |>
+  summarise(VALUE = mean(VALUE), .groups = "drop") |>
+  arrange(fecha)
+
+if (nrow(serie_empleo) >= 36 &&
+    requireNamespace("forecast", quietly = TRUE)) {
+
+  # Comprobar huecos mensuales; no interpolarlos sin inspección.
+  calendario_mensual <- tibble::tibble(
+    fecha = seq(min(serie_empleo$fecha),
+                max(serie_empleo$fecha), by = "month")
+  )
+  serie_empleo <- calendario_mensual |>
+    left_join(serie_empleo, by = "fecha")
+
+  # Para ARIMA se usa el tramo continuo sin NA final/intermedio.
+  # Si hay huecos internos, se interpolan linealmente y se documenta
+  # que este paso es una aproximación para poder ajustar el modelo.
+  serie_empleo <- serie_empleo |>
+    mutate(VALUE_modelo = zoo::na.approx(VALUE, x = fecha,
+                                         na.rm = FALSE))
+  serie_empleo <- serie_empleo |>
+    filter(!is.na(VALUE_modelo))
+
+  if (nrow(serie_empleo) >= 36) {
+    frecuencia_ts <- stats::ts(
+      serie_empleo$VALUE_modelo,
+      frequency = 12
+    )
+
+    n_test <- min(12, max(6, floor(nrow(serie_empleo) * 0.2)))
+    n_train <- nrow(serie_empleo) - n_test
+    train_ts <- stats::ts(
+      serie_empleo$VALUE_modelo[seq_len(n_train)],
+      frequency = 12
+    )
+    test_valores <- serie_empleo$VALUE_modelo[
+      (n_train + 1):nrow(serie_empleo)
+    ]
+
+    # Descomposición STL sobre entrenamiento únicamente para evitar fuga de
+    # información desde el conjunto de prueba.
+    if (length(train_ts) >= 24) {
+      descomposicion_stl <- stats::stl(train_ts, s.window = "periodic", robust = TRUE)
+      plot(descomposicion_stl, main = "Descomposición STL de afiliaciones (entrenamiento)")
+    }
+
+    modelo_arima <- forecast::auto.arima(
+      train_ts, seasonal = TRUE,
+      stepwise = FALSE, approximation = FALSE
+    )
+    pred_arima <- forecast::forecast(modelo_arima, h = n_test)
+
+    # Comparación STL + ARIMA con el mismo horizonte de test.
+    pred_stl_arima <- forecast::stlf(
+      train_ts, method = "arima", h = n_test
+    )
+
+    comparacion_predicciones <- tibble::tibble(
+      fecha = tail(serie_empleo$fecha, n_test),
+      real = as.numeric(test_valores),
+      ARIMA = as.numeric(pred_arima$mean),
+      `STL + ARIMA` = as.numeric(pred_stl_arima$mean)
+    )
+
+    print(summary(modelo_arima))
+    print(knitr::kable(comparacion_predicciones, digits = 2,
+                       caption = "Predicciones frente a valores observados"))
+
+    # Gráfico del tramo de test.
+    comparacion_predicciones |>
+      pivot_longer(cols = c(ARIMA, `STL + ARIMA`),
+                   names_to = "modelo", values_to = "prediccion") |>
+      ggplot(aes(x = fecha)) +
+      geom_line(aes(y = real, colour = "Real"), linewidth = 0.8) +
+      geom_line(aes(y = prediccion, colour = modelo),
+                linewidth = 0.8, linetype = 2) +
+      labs(title = "Validación temporal de los modelos de empleo",
+           x = "Fecha", y = "Afiliaciones", colour = "Serie") +
+      theme_minimal()
+
+  } else {
+    cat("No hay suficientes observaciones mensuales completas para el modelo.")
+  }
+} else {
+  cat("No se ajusta ARIMA: faltan al menos 36 observaciones o el paquete forecast.")
+}
+```
+
+La regresión, la matriz de correlación y el PCA se reservan para la Entrega 3, de acuerdo con la planificación del proyecto.
+
+**Incidencia de reproducibilidad pendiente de resolver antes de entregar.** Este bloque llama a `forecast::auto.arima()`, `forecast::forecast()` y `forecast::stlf()`, aunque `forecast` no se carga en el documento. La comprobación `requireNamespace("forecast", quietly = TRUE)` solo detecta si está instalado; no demuestra que el procedimiento esté permitido por el libro. Para cumplir estrictamente la restricción de la asignatura, hay que sustituir estas llamadas por las funciones y utilidades documentadas en AEDV-libro y cargar el fichero `utilidades.R` correspondiente si el libro lo exige. No se debe añadir `forecast` únicamente para ocultar esta incompatibilidad.
+
+
 ## Evaluación
 
 Esta fase valora si los modelos del Tema 5 son fiables. Todas las métricas y tests se calculan en los chunks siguientes.
@@ -1934,6 +2232,121 @@ Los p-valores y métricas de las tablas anteriores son los que determinan la fia
 > **Pendiente para la Entrega 3:** validación cruzada temporal y análisis de atributos (correlación, PCA, k-means) para completar P4.
 
 ---
+
+### Código aplicado: evaluación y diagnóstico
+
+Se evalúa el error sobre el tramo de prueba reservado al final de la serie y se revisan los residuos del modelo ARIMA. Las métricas deben interpretarse en las unidades del indicador y compararse con las del modelo alternativo usando exactamente el mismo periodo de prueba. La referencia de último valor se incluye como baseline sencillo. El contraste de Ljung–Box evalúa autocorrelación residual; Shapiro–Wilk es orientativo y no demuestra por sí solo la validez del modelo. La validación cruzada temporal y las funciones auxiliares `aedv_` indicadas en el material docente siguen siendo requisitos pendientes: no deben darse por satisfechos hasta incorporarlas con las firmas exactas documentadas en el libro. La versión actual no debe considerarse plenamente conforme con la restricción de librerías mientras siga utilizando el paquete `forecast`.
+
+```{r evaluacion-series, echo=TRUE, fig.width=9, fig.height=5}
+if (exists("modelo_arima") && exists("pred_arima") &&
+    exists("pred_stl_arima") && exists("test_valores") &&
+    exists("train_ts")) {
+
+  # Métricas calculadas sobre exactamente el mismo conjunto de prueba.
+  calcular_metricas <- function(real, prediccion, modelo, escala_mase) {
+    error <- as.numeric(real) - as.numeric(prediccion)
+    tibble::tibble(
+      modelo = modelo,
+      RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+      MAE = mean(abs(error), na.rm = TRUE),
+      MASE = if (is.finite(escala_mase) && escala_mase > 0)
+        mean(abs(error), na.rm = TRUE) / escala_mase else NA_real_
+    )
+  }
+
+  # MASE estacional para una serie mensual: error absoluto medio del baseline
+  # estacional ingenuo (valor del mismo mes del año anterior).
+  valores_train <- as.numeric(train_ts)
+  escala_mase <- if (length(valores_train) > 12) {
+    mean(abs(valores_train[13:length(valores_train)] -
+             valores_train[1:(length(valores_train) - 12)]), na.rm = TRUE)
+  } else {
+    NA_real_
+  }
+  pred_baseline <- rep(tail(as.numeric(train_ts), 1), length(test_valores))
+
+  tabla_metricas <- dplyr::bind_rows(
+    calcular_metricas(test_valores, as.numeric(pred_arima$mean),
+                      "ARIMA", escala_mase),
+    calcular_metricas(test_valores, as.numeric(pred_stl_arima$mean),
+                      "STL + ARIMA", escala_mase),
+    calcular_metricas(test_valores, pred_baseline,
+                      "Referencia: último valor", escala_mase)
+  )
+
+  knitr::kable(tabla_metricas, digits = 3,
+               caption = "Errores predictivos en el conjunto de prueba")
+
+  # Diagnóstico de residuos del ARIMA: evolución temporal, ACF e histograma.
+  residuos_arima <- as.numeric(stats::residuals(modelo_arima))
+  residuos_arima <- residuos_arima[is.finite(residuos_arima)]
+
+  if (length(residuos_arima) > 2) {
+    par(mfrow = c(3, 1))
+    plot(residuos_arima, type = "l", xlab = "Tiempo", ylab = "Residuo",
+         main = "Residuos del ARIMA")
+    stats::acf(residuos_arima, main = "ACF de los residuos")
+    hist(residuos_arima, breaks = "Sturges",
+         main = "Histograma de residuos", xlab = "Residuo")
+    par(mfrow = c(1, 1))
+
+    # Contraste de autocorrelación residual. No sustituye la inspección gráfica.
+    lag_box <- min(12, floor(length(residuos_arima) / 5))
+    if (lag_box > 0) {
+      prueba_box <- stats::Box.test(
+        residuos_arima, lag = lag_box, type = "Ljung-Box",
+        fitdf = length(stats::coef(modelo_arima))
+      )
+      knitr::kable(
+        tibble::tibble(
+          prueba = "Ljung-Box",
+          estadistico = unname(prueba_box$statistic),
+          grados_libertad = unname(prueba_box$parameter),
+          p_valor = prueba_box$p.value
+        ),
+        digits = 4,
+        caption = "Contraste de autocorrelación de los residuos"
+      )
+    }
+
+    if (length(residuos_arima) >= 3 && length(residuos_arima) <= 5000) {
+      prueba_normalidad <- stats::shapiro.test(residuos_arima)
+      knitr::kable(
+        tibble::tibble(
+          prueba = "Shapiro-Wilk",
+          estadistico = unname(prueba_normalidad$statistic),
+          p_valor = prueba_normalidad$p.value
+        ),
+        digits = 4,
+        caption = "Contraste orientativo de normalidad de los residuos"
+      )
+    }
+  }
+
+  tabla_criterios <- tibble::tibble(
+    criterio = c("AIC", "AICc", "BIC", "Desviación típica de residuos"),
+    valor = c(
+      stats::AIC(modelo_arima),
+      if (!is.null(modelo_arima$aicc)) modelo_arima$aicc else NA_real_,
+      stats::BIC(modelo_arima),
+      stats::sd(residuos_arima, na.rm = TRUE)
+    )
+  )
+  knitr::kable(tabla_criterios, digits = 3,
+               caption = "Criterios de información y dispersión residual")
+
+} else {
+  cat("La evaluación no se ejecuta porque no se ha podido ajustar el modelo en la sección anterior.")
+}
+```
+
+<!-- El análisis de regresión pertenece a la Entrega 3 y se incorpora cuando
+     exista un modelo_lm ajustado y documentado. -->
+
+
+
+**Limitaciones de la evaluación.** La validación temporal reserva el tramo final como test, pero todavía no aplica validación cruzada de origen móvil. Por tanto, los resultados son preliminares y no permiten afirmar que el rendimiento se mantenga en distintos orígenes temporales. La interpolación lineal puede suavizar variaciones reales; por eso se limita a huecos internos de la serie mensual y debe interpretarse como una decisión metodológica, no como dato observado. La descomposición STL se ajusta solo con entrenamiento. En la interpretación de los gráficos residuales se comprobará si la media se mantiene alrededor de cero, si la dispersión cambia con el tiempo y si la ACF muestra autocorrelación; estos gráficos son diagnósticos y no sustituyen por sí solos los contrastes formales exigidos por la asignatura.
+
 
 ## Despliegue
 
