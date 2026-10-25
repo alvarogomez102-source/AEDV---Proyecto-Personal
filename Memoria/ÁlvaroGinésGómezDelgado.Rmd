@@ -1092,7 +1092,22 @@ resumen_calidad <- tibble::tibble(
 )
 
 knitr::kable(resumen_calidad, caption = "Comprobaciones iniciales de calidad")
+
+# Resumen del universo analítico: combinaciones territorio-indicador-periodo.
+resumen_combinaciones <- datos_preparados |>
+  summarise(
+    filas = n(),
+    indicadores = n_distinct(INDICATOR),
+    territorios = n_distinct(GEOGRAPHICAL),
+    combinaciones_territorio_indicador = n_distinct(paste(GEOGRAPHICAL, INDICATOR, sep = "__")),
+    periodos = n_distinct(TIME),
+    fecha_inicial = min(fecha, na.rm = TRUE),
+    fecha_final = max(fecha, na.rm = TRUE)
+  )
+knitr::kable(resumen_combinaciones, caption = "Cobertura del conjunto preparado")
 ```
+
+**Selección y filtrado.** Para el análisis temporal principal se selecciona `AFILIACIONES_ASALARIADOS`, frecuencia mensual y el territorio `Las Palmas de Gran Canaria`, por ser una serie directamente relacionada con P1 y P5 y permitir una validación temporal homogénea. No se mezclan frecuencias mensuales, trimestrales y anuales en una misma serie. El periodo efectivo lo determinan las fechas publicadas por ISTAC; no se fuerza un inicio o final común para indicadores distintos. En esta entrega no se eliminan categorías del conjunto maestro: los filtros se aplican en cada análisis específico. Las combinaciones sin observaciones no se pueden reconstruir a partir de una descarga que solo contiene periodos publicados; se identifican como huecos al construir el calendario de cada serie.
 
 ```{r preparacion-outliers, echo=TRUE}
 # Marcar posibles valores atípicos por indicador mediante el criterio IQR.
@@ -1202,9 +1217,9 @@ ajuste hace visible la iteración y mantiene la coherencia del documento.
 
 
 
-### Código aplicado: series temporales y análisis de atributos
+### Código aplicado: modelado de series temporales
 
-Se toma como serie principal el indicador mensual de afiliaciones asalariadas de Las Palmas de Gran Canaria. Se reserva el último año disponible para evaluar las predicciones fuera de muestra. Si no hay suficientes observaciones, el código informa de ello en lugar de ajustar un modelo poco fiable.
+En la Entrega 2 el modelado se centra en series temporales; el análisis multivariante de atributos (correlación, regresión y PCA) se reserva para la Entrega 3. Se toma como serie principal el indicador mensual de afiliaciones asalariadas de Las Palmas de Gran Canaria. Se reserva el último año disponible para evaluar las predicciones fuera de muestra. Si no hay suficientes observaciones, el código informa de ello en lugar de ajustar un modelo poco fiable.
 
 ```{r modelado-arima, echo=TRUE, fig.width=9, fig.height=5}
 # Serie mensual de empleo para Las Palmas de Gran Canaria.
@@ -1256,6 +1271,13 @@ if (nrow(serie_empleo) >= 36 &&
       (n_train + 1):nrow(serie_empleo)
     ]
 
+    # Descomposición STL sobre entrenamiento únicamente para evitar fuga de
+    # información desde el conjunto de prueba.
+    if (length(train_ts) >= 24) {
+      descomposicion_stl <- stats::stl(train_ts, s.window = "periodic", robust = TRUE)
+      plot(descomposicion_stl, main = "Descomposición STL de afiliaciones (entrenamiento)")
+    }
+
     modelo_arima <- forecast::auto.arima(
       train_ts, seasonal = TRUE,
       stepwise = FALSE, approximation = FALSE
@@ -1298,75 +1320,7 @@ if (nrow(serie_empleo) >= 36 &&
 }
 ```
 
-```{r modelado-atributos, echo=TRUE, fig.width=8, fig.height=5}
-# Resumen municipal anual: empleo medio anual y población anual.
-# Se agregan las afiliaciones mensuales a media anual antes de unirlas
-# con población, que tiene frecuencia anual.
-empleo_anual <- datos_preparados |>
-  filter(INDICATOR == "AFILIACIONES_ASALARIADOS",
-         frecuencia == "M", !is.na(VALUE)) |>
-  group_by(GEOGRAPHICAL, NAME, anio) |>
-  summarise(empleo_medio = mean(VALUE), .groups = "drop")
-
-poblacion_anual <- datos_preparados |>
-  filter(INDICATOR == "POBLACION",
-         frecuencia == "Y", !is.na(VALUE)) |>
-  group_by(GEOGRAPHICAL, NAME, anio) |>
-  summarise(poblacion = mean(VALUE), .groups = "drop")
-
-empleo_poblacion <- inner_join(
-  empleo_anual, poblacion_anual,
-  by = c("GEOGRAPHICAL", "NAME", "anio")
-) |>
-  filter(is.finite(empleo_medio), is.finite(poblacion))
-
-if (nrow(empleo_poblacion) >= 3 &&
-    dplyr::n_distinct(empleo_poblacion$poblacion) > 1) {
-
-  # Correlación y regresión descriptiva.
-  matriz_correlacion <- cor(
-    empleo_poblacion |> select(empleo_medio, poblacion),
-    use = "complete.obs"
-  )
-  print(knitr::kable(round(matriz_correlacion, 3),
-                     caption = "Correlación entre empleo medio y población"))
-
-  modelo_lm <- lm(empleo_medio ~ poblacion, data = empleo_poblacion)
-  print(summary(modelo_lm))
-
-  ggplot(empleo_poblacion,
-         aes(x = poblacion, y = empleo_medio)) +
-    geom_point() +
-    geom_smooth(method = "lm", se = TRUE) +
-    labs(title = "Relación entre población y afiliaciones asalariadas",
-         x = "Población anual", y = "Afiliaciones medias mensuales") +
-    theme_minimal()
-
-  # PCA exploratorio de los dos atributos, estandarizados.
-  matriz_pca <- empleo_poblacion |>
-    select(empleo_medio, poblacion) |>
-    na.omit()
-
-  if (nrow(matriz_pca) >= 3) {
-    modelo_pca <- prcomp(matriz_pca, center = TRUE, scale. = TRUE)
-    print(summary(modelo_pca))
-    print(modelo_pca$rotation)
-
-    varianza_pca <- modelo_pca$sdev^2 / sum(modelo_pca$sdev^2)
-    tabla_varianza_pca <- tibble::tibble(
-      componente = paste0("PC", seq_along(varianza_pca)),
-      varianza_explicada = varianza_pca,
-      varianza_acumulada = cumsum(varianza_pca)
-    )
-    print(knitr::kable(tabla_varianza_pca, digits = 3,
-                       caption = "Varianza explicada por el PCA"))
-  }
-} else {
-  cat("No hay suficientes coincidencias anuales entre empleo y población para el análisis conjunto.")
-}
-```
-
-La regresión y el PCA anteriores son exploratorios. Como población y empleo se miden en escalas diferentes, el PCA estandariza las variables. La relación estadística no demuestra causalidad y la unión solo conserva los territorios y años que aparecen en ambos indicadores.
+La regresión, la matriz de correlación y el PCA se reservan para la Entrega 3, de acuerdo con la planificación del proyecto.
 
 
 ## Evaluación
@@ -1433,9 +1387,9 @@ if (exists("modelo_arima") && exists("pred_arima") &&
 
   calcular_metricas <- function(real, prediccion, modelo) {
     error <- real - prediccion
-    # MASE con referencia ingenua de un paso; en series mensuales
-    # estacionales puede preferirse una referencia estacional (lag 12).
-    escala <- mean(abs(diff(real)), na.rm = TRUE)
+    # Escala MASE calculada exclusivamente con el conjunto de entrenamiento,
+    # evitando utilizar el test para definir la referencia.
+    escala <- mean(abs(diff(as.numeric(train_ts))), na.rm = TRUE)
     tibble::tibble(
       modelo = modelo,
       RMSE = sqrt(mean(error^2, na.rm = TRUE)),
@@ -1454,8 +1408,16 @@ if (exists("modelo_arima") && exists("pred_arima") &&
   knitr::kable(tabla_metricas, digits = 3,
                caption = "Comparación de errores en el conjunto de prueba")
 
-  # Diagnóstico de residuos del ARIMA ajustado en entrenamiento.
-  forecast::checkresiduals(modelo_arima)
+  # Diagnóstico explícito de residuos: serie temporal, ACF e histograma.
+  residuos_arima <- as.numeric(residuals(modelo_arima))
+  residuos_arima <- residuos_arima[is.finite(residuos_arima)]
+  par(mfrow = c(3, 1))
+  plot(residuos_arima, type = "l", xlab = "Tiempo", ylab = "Residuo",
+       main = "Residuos del ARIMA")
+  stats::acf(residuos_arima, main = "ACF de los residuos")
+  hist(residuos_arima, breaks = "Sturges", main = "Histograma de residuos",
+       xlab = "Residuo")
+  par(mfrow = c(1, 1))
 
   tabla_criterios <- tibble::tibble(
     criterio = c("AIC", "AICc", "BIC", "Desviación típica de residuos"),
@@ -1498,7 +1460,7 @@ if (exists("modelo_lm")) {
 }
 ```
 
-**Limitaciones de la evaluación.** La validación temporal usa el tramo final como test y no una validación cruzada de origen móvil. Los resultados solo serán válidos si la serie seleccionada contiene suficientes observaciones y si el calendario mensual se ha interpretado correctamente. La interpolación aplicada para poder ajustar ARIMA debe revisarse y documentarse si afecta a periodos relevantes. La función `forecast::checkresiduals()` aporta un diagnóstico estándar; las funciones auxiliares `aedv_arima_accuracy()`, `aedv_tests_residuos()`, `aedv_cv_arima()` y `aedv_cv_stl_arima()` deben incorporarse cuando se compruebe su firma exacta en las utilidades originales de la asignatura.
+**Limitaciones de la evaluación.** La validación temporal reserva el tramo final como test, pero todavía no aplica validación cruzada de origen móvil. La interpolación lineal puede suavizar variaciones reales; por eso se limita a huecos internos de la serie mensual y debe interpretarse como una decisión metodológica, no como dato observado. La descomposición STL se ajusta solo con entrenamiento. En la interpretación de los gráficos residuales se comprobará si la media se mantiene alrededor de cero, si la dispersión cambia con el tiempo y si la ACF muestra autocorrelación; estos gráficos son diagnósticos y no sustituyen por sí solos los contrastes formales exigidos por la asignatura.
 
 
 ## Despliegue
