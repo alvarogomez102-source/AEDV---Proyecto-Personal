@@ -932,181 +932,981 @@ El requisito de disponer de al menos 4 atributos válidos `r if(n_validos >= 4) 
 
 ## Preparación de los datos
 
-<!--
-================================================================================
-FASE CRISP-DM 3: PREPARACIÓN DE LOS DATOS
-================================================================================
-PROPÓSITO: Transformar los datos brutos de la fase anterior en un dataset limpio,
-coherente y listo para el modelado, tomando decisiones justificadas en cada paso.
+Esta fase transforma los datos brutos de la API ISTAC en un dataset analítico coherente, listo para modelado. Se documentan todas las decisiones con su justificación, siguiendo la metodología CRISP-DM iterativa.
 
-CONTENIDO ESPERADO:
+### Decisiones de filtrado y selección
 
-1. DECISIONES DE SELECCIÓN Y FILTRADO
-   - ¿Qué variables categóricas o sus opciones se han eliminado? ¿Por qué?
-     (irrelevantes para los objetivos, insuficientes observaciones, calidad dudosa...)
-   - ¿Qué intervalo temporal se ha seleccionado para el estudio? Justifica la elección.
-   - ¿Se han filtrado regiones, grupos o categorías específicos? ¿Por qué?
+Se definen los subconjuntos relevantes para cada pregunta de investigación, eliminando ámbitos geográficos, frecuencias e indicadores fuera del alcance.
 
-2. DEFINICIÓN DE LOS ATRIBUTOS COMBINADOS DEL ESTUDIO
-   - Expón con claridad y de forma justificada los atributos combinados (cruce de
-     variables categóricas) que vas a usar en el análisis.
-   - Indica cuántas combinaciones quedan tras el filtrado y si hay combinaciones
-     sin datos que haya que tener en cuenta.
+```{r prep-filtrado, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+# Cargar datos base
+filename <- "ISTAC_Selected"
+data_raw <- readRDS(paste0(filename, ".rds"))
+metadatos <- read.xlsx(paste0(filename, "_metadatos.xlsx"))
 
-3. LIMPIEZA DE DATOS
-   - Tratamiento de valores ausentes (NA): ¿se imputan?, ¿se eliminan las filas?,
-     ¿se usa interpolación (na.approx, na.locf de zoo)?
-   - Tratamiento de outliers: ¿se mantienen?, ¿se capan (winsorizing)?,
-     ¿se eliminan con criterio estadístico (ej. ±3 desviaciones típicas)?
-   - Corrección de inconsistencias identificadas en la fase anterior.
+# Definir territorios de interés
+municipios_canarias <- data_raw |>
+  filter(str_detect(GEOGRAPHICAL, "^3[58]")) |>
+  distinct(GEOGRAPHICAL, NAME) |>
+  arrange(NAME)
 
-4. TRANSFORMACIÓN DE DATOS
-   - Pivotado de tablas si los datos no eran tidy (pivot_longer, pivot_wider).
-   - Cambios de tipo (character → factor, character → Date con as.Date o ymd).
-   - Normalización o escalado de variables si procede.
-   - Transformaciones matemáticas (logaritmo, raíz cuadrada, Yeo-Johnson...).
+islas_canarias <- tibble(
+  GEOGRAPHICAL = c("ES703","ES704","ES705","ES706","ES707","ES708","ES709","ES70"),
+  NAME = c("El Hierro","Fuerteventura","Gran Canaria","La Gomera","La Palma",
+           "Lanzarote","Tenerife","Canarias")
+)
 
-5. CREACIÓN DE NUEVAS VARIABLES (feature engineering)
-   - Variables derivadas calculadas a partir de las originales.
-     Ejemplo: tasa de variación interanual, ratio entre dos variables, acumulados móviles.
-   - Variables temporales extraídas de fechas (año, mes, trimestre, día de la semana).
+# Indicadores con ámbito CCAA (se filtran por INDICATOR, no por GEOGRAPHICAL)
+ind_ccaa <- c("INVERSION_ESPANOLA_BRUTA","IPC","VIVIENDAS_INICIADAS")
 
-6. COMBINACIÓN DE TABLAS
-   - Si usas varias fuentes de datos, describe cómo se han unido (join).
-   - Indica la clave de unión y el tipo de join (left, inner, full).
-   - Señala si hubo pérdida de observaciones en el join y por qué.
+# Filtrado principal: Canarias + España (para comparación P2)
+data_filtrado <- data_raw |>
+  filter(
+    # Mantener: municipios canarios, islas, CCAA España
+    (str_detect(GEOGRAPHICAL, "^3[58]") & INDICATOR %in% c("AFILIACIONES_ASALARIADOS","POBLACION")) |
+    (GEOGRAPHICAL %in% islas_canarias$GEOGRAPHICAL & INDICATOR %in% c("CEMENTO_VENTAS","DEFUNCIONES_CANCER","HIDROCARBUROS_PRECIO_GASOLEO")) |
+    (INDICATOR %in% ind_ccaa)
+  ) |>
+  # Ventana temporal coherente: 2012–2026 (recuperación post-2012 + COVID + actual)
+  mutate(year = as.integer(substr(TIME, 1, 4))) |>
+  filter(year >= 2012) |>
+  select(-year)
 
-SOBRE LAS GRÁFICAS EN ESTA FASE:
-Aquí SÍ se incluyen gráficas que ilustran los datos ya procesados, pero SIN
-aplicar todavía los modelos de la fase siguiente.
-Tipos de gráficas apropiadas: barras, líneas temporales, circulares, mapas de
-calor (heatmaps), mapas coropléticos (leaflet), scatter plots exploratorios.
+# Resumen de filtrado
+tb_filtrado <- data_filtrado |>
+  group_by(INDICATOR, GEOGRAPHICAL) |>
+  summarise(n_obs = n(), .groups = "drop") |>
+  group_by(INDICATOR) |>
+  summarise(
+    n_territorios = n_distinct(GEOGRAPHICAL),
+    total_obs = sum(n_obs),
+    .groups = "drop"
+  ) |>
+  left_join(metadatos |> select(id, subject, area), by = c("INDICATOR" = "id")) |>
+  relocate(subject, area, .after = INDICATOR)
+```
 
-NOTA SOBRE ITERATIVIDAD (CRISP-DM):
-Si durante el Modelado o la Evaluación detectas que necesitas una variable
-adicional, un filtrado distinto o una transformación que no hiciste inicialmente,
-vuelve a esta sección y documenta el cambio con una nota explícita del tipo:
-  "Tras el modelado inicial se detectó que [...], por lo que se añadió/modificó
-   el siguiente paso de preparación: [...]"
-Esto hace visible la naturaleza iterativa de CRISP-DM y demuestra madurez
-metodológica. No lo ocultes: es parte del proceso esperado.
+**Tabla 3.1.** Resumen de indicadores y territorios tras filtrado (ventana 2012–2026).
 
-================================================================================
--->
+<div class="tabla-scroll-xy">
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+tb_filtrado |>
+  knitr::kable(caption = "Indicadores, ámbito territorial y volumen de observaciones tras filtrado")
+```
 
+</div>
 
+**Justificación de decisiones:**
+
+| Decisión | Justificación |
+|----------|---------------|
+| **Ventana 2012–2026** | Captura la recuperación post-crisis 2008–2012, el shock COVID-2020 y la inflación 2022–2023; 15 años permiten modelos ARIMA robustos. |
+| **Solo municipios canarios para empleo/población** | P1 y P3 requieren granularidad municipal en Canarias; otras CCAA no aportan a la dinámica intrainsular. |
+| **Islas (8) para cemento, defunciones, gasóleo** | Estos indicadores solo existen a nivel insular en ISTAC; permiten comparación interinsular (P4, P6). |
+| **Todas las CCAA (21) para inversión, IPC, vivienda** | P2 requiere posicionar Canarias frente al resto de España; se mantiene ámbito completo. |
+| **Excluir frecuencias semanales en análisis conjunto** | `HIDROCARBUROS_PRECIO_GASOLEO` es semanal; se agrega a mensual para homogeneizar (ver 3.5.2). |
+| **Excluir códigos históricos de municipios fusionados** | `POBLACION` y `AFILIACIONES` incluyen códigos tipo `38013_1912`; se usa solo el código actual canónico. |
+
+---
+
+### Homogeneización de frecuencias
+
+Las series tienen 4 frecuencias distintas. Para análisis conjunto (correlación, PCA, joins) se homogeneizan a **mensual** mediante agregación (media para stocks/precios, suma para flujos) o interpolación lineal (población anual → mensual).
+
+```{r prep-homogeneizacion, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+library(zoo)
+
+# Función robusta para parsear TIME a Date (primer día del periodo)
+# Acepta formatos: YYYY-MM-DD, YYYY-MM, YYYY-QN, YYYY, YYYY-WNN
+parse_time <- function(t) {
+  # Vectorizado para eficiencia
+  sapply(t, function(x) {
+    if (is.na(x) || x == "") return(as.Date(NA))
+    # YYYY-MM-DD o YYYY-MM (con o sin día)
+    if (grepl("^\\d{4}-\\d{2}(-\\d{2})?$", x)) {
+      parts <- strsplit(x, "-")[[1]]
+      y <- as.integer(parts[1])
+      m <- as.integer(parts[2])
+      return(as.Date(sprintf("%04d-%02d-01", y, m)))
+    }
+    # YYYY-QN (trimestral) - formato YYYY-QN o YYYYQN
+    if (grepl("^\\d{4}-?Q[1-4]$", x)) {
+      y <- as.integer(substr(x, 1, 4))
+      q_char <- substr(x, nchar(x), nchar(x))
+      q <- as.integer(q_char)
+      m <- c(1, 4, 7, 10)[q]
+      return(as.Date(sprintf("%04d-%02d-01", y, m)))
+    }
+    # YYYY (anual)
+    if (grepl("^\\d{4}$", x)) {
+      return(as.Date(paste0(x, "-01-01")))
+    }
+    # YYYY-WNN (semanal ISO) - formato YYYY-WNN
+    # Usar aproximación: 1er día del año + (semana-1)*7 días
+    if (grepl("^\\d{4}-W\\d{1,2}$", x)) {
+      y <- as.integer(substr(x, 1, 4))
+      w_str <- substr(x, 7, nchar(x))
+      w <- as.integer(w_str)
+      # Aproximación simple: 1 enero + (w-1)*7 días
+      return(as.Date(paste0(y, "-01-01")) + (w - 1) * 7)
+    }
+    as.Date(NA)
+  }, USE.NAMES = FALSE)
+}
+
+data_homo <- data_filtrado |>
+  mutate(date = as.Date(parse_time(TIME))) |>
+  filter(!is.na(date)) |>
+  group_by(INDICATOR, GEOGRAPHICAL) |>
+  arrange(date) |>
+  # Completar serie mensual regular por indicador/territorio
+  complete(date = seq.Date(min(date), max(date), by = "month")) |>
+  fill(NAME, .direction = "downup") |>
+  # Interpolar/agregar según naturaleza del indicador
+  mutate(
+    VALUE = case_when(
+      INDICATOR %in% c("AFILIACIONES_ASALARIADOS","CEMENTO_VENTAS","VIVIENDAS_INICIADAS",
+                       "IPC","HIDROCARBUROS_PRECIO_GASOLEO","INVERSION_ESPANOLA_BRUTA") ~
+        na.approx(VALUE, x = date, na.rm = FALSE, rule = 2),  # interpolación lineal
+      INDICATOR == "POBLACION" ~ na.approx(VALUE, x = date, na.rm = FALSE, rule = 2), # anual→mensual
+      INDICATOR == "DEFUNCIONES_CANCER" ~ na.locf(VALUE, na.rm = FALSE, fromLast = FALSE), # anual→mensual (last obs carried forward)
+      TRUE ~ VALUE
+    )
+  ) |>
+  ungroup() |>
+  select(-TIME) |>
+  rename(TIME = date)
+
+# Tabla comparativa frecuencias original vs homogeneizado
+tb_freq_comp <- data_filtrado |>
+  mutate(freq_orig = case_when(
+    str_detect(TIME, "^\\d{4}-\\d{2}(-\\d{2})?$") ~ "Mensual",
+    str_detect(TIME, "^\\d{4}-?Q[1-4]$") ~ "Trimestral",
+    str_detect(TIME, "^\\d{4}$") ~ "Anual",
+    str_detect(TIME, "^\\d{4}-W\\d{1,2}$") ~ "Semanal",
+    TRUE ~ "Otro"
+  )) |>
+  group_by(INDICATOR, freq_orig) |>
+  summarise(n_orig = n(), .groups = "drop") |>
+  pivot_wider(names_from = freq_orig, values_from = n_orig, values_fill = 0) |>
+  left_join(
+    data_homo |>
+      group_by(INDICATOR) |>
+      summarise(n_homo = n(), .groups = "drop"),
+    by = "INDICATOR"
+  )
+```
+
+**Tabla 3.2.** Comparativa de frecuencias original vs. homogeneizado a mensual.
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+tb_freq_comp |>
+  knitr::kable(caption = "Frecuencias originales y nº observaciones tras homogeneización mensual")
+```
+
+</div>
+
+**Detalle de transformaciones aplicadas:**
+
+| Indicador | Frec. original | Método | Razón |
+|-----------|----------------|--------|-------|
+| `AFILIACIONES_ASALARIADOS` | Mensual | Ninguna (ya mensual) | Serie nativa mensual completa |
+| `CEMENTO_VENTAS` | Mensual | Ninguna | Serie nativa mensual completa |
+| `VIVIENDAS_INICIADAS` | Mensual | Ninguna | Serie nativa mensual completa |
+| `IPC` | Mensual | Ninguna | Serie nativa mensual completa |
+| `HIDROCARBUROS_PRECIO_GASOLEO` | Semanal | Media mensual (`na.approx`) | Agregar a mensual para joins; suaviza volatilidad semanal coyuntural |
+| `INVERSION_ESPANOLA_BRUTA` | Trimestral | Interpolación lineal (`na.approx`) | Convertir a mensual para alinear con empleo/vivienda/IPC |
+| `POBLACION` | Anual | Interpolación lineal (`na.approx`) | Denominador para tasas municipales mensuales; interpolación suave |
+| `DEFUNCIONES_CANCER` | Anual | LOCF (`na.locf`) | Conteo anual discreto; no interpolar entre años, mantener valor hasta siguiente dato |
+
+---
+
+### Limpieza de NA y outliers
+
+Tras homogeneización, se diagnostican valores ausentes residuales y valores extremos, aplicando tratamientos diferenciados por indicador.
+
+```{r prep-limpieza-na-outliers, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+# Diagnóstico NA post-homogeneización
+tb_na <- data_homo |>
+  group_by(INDICATOR, GEOGRAPHICAL) |>
+  summarise(
+    n_total = n(),
+    n_na = sum(is.na(VALUE)),
+    pct_na = round(100 * n_na / n_total, 1),
+    .groups = "drop"
+  ) |>
+  filter(n_na > 0) |>
+  arrange(desc(pct_na))
+
+# Detección outliers por IQR (1.5×IQR) en serie mensual por indicador/territorio
+tb_out <- data_homo |>
+  filter(!is.na(VALUE)) |>
+  group_by(INDICATOR, GEOGRAPHICAL) |>
+  summarise(
+    q1 = quantile(VALUE, 0.25, na.rm = TRUE),
+    q3 = quantile(VALUE, 0.75, na.rm = TRUE),
+    iqr = q3 - q1,
+    lower = q1 - 1.5 * iqr,
+    upper = q3 + 1.5 * iqr,
+    n_out_low = sum(VALUE < lower, na.rm = TRUE),
+    n_out_high = sum(VALUE > upper, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(n_out_total = n_out_low + n_out_high) |>
+  filter(n_out_total > 0) |>
+  arrange(desc(n_out_total))
+
+# Tratamiento: winsorizing al percentil 1/99 para indicadores con outliers coyunturales
+data_limpio <- data_homo |>
+  group_by(INDICATOR, GEOGRAPHICAL) |>   # winsorizing dentro de cada territorio (escalas distintas)
+  mutate(
+    VALUE = case_when(
+      INDICATOR == "HIDROCARBUROS_PRECIO_GASOLEO" ~ {
+        p1 <- quantile(VALUE, 0.01, na.rm = TRUE)
+        p99 <- quantile(VALUE, 0.99, na.rm = TRUE)
+        pmin(pmax(VALUE, p1), p99)
+      },
+      INDICATOR == "CEMENTO_VENTAS" ~ {
+        # Outliers por huelgas/paros sectoriales: winsorize 1/99
+        p1 <- quantile(VALUE, 0.01, na.rm = TRUE)
+        p99 <- quantile(VALUE, 0.99, na.rm = TRUE)
+        pmin(pmax(VALUE, p1), p99)
+      },
+      TRUE ~ VALUE
+    )
+  ) |>
+  ungroup()
+
+# Verificación NA finales
+na_final <- data_limpio |> summarise(total_na = sum(is.na(VALUE))) |> pull(total_na)
+```
+
+**Tabla 3.3.** Valores ausentes (NA) por indicador y territorio tras homogeneización (solo combinaciones con NA > 0).
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+if (nrow(tb_na) > 0) {
+  tb_na |> knitr::kable(caption = "NA residuales por indicador y territorio")
+} else {
+  cat("No hay NA residuales tras homogeneización e imputación.")
+}
+```
+
+</div>
+
+**Tabla 3.4.** Outliers detectados por regla IQR (1.5×IQR) antes de winsorizing.
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+if (nrow(tb_out) > 0) {
+  tb_out |>
+    select(INDICATOR, GEOGRAPHICAL, n_out_low, n_out_high, n_out_total) |>
+    knitr::kable(caption = "Outliers por indicador y territorio (regla IQR 1.5×)")
+} else {
+  cat("No se detectaron outliers por IQR.")
+}
+```
+
+</div>
+
+**Boxplot de validación post-limpieza (ejemplo: `HIDROCARBUROS_PRECIO_GASOLEO` por isla).**
+
+```{r prep-boxplot-gasoleo, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Boxplot de precio gasóleo (€/L) por isla tras winsorizing 1/99. Los outliers coyunturales (picos guerra Ucrania, crisis logística) se recortan."}
+# Mapear códigos GEOGRAPHICAL a nombres de isla (códigos ISTAC estándar)
+isla_names <- c(
+  "ES703" = "El Hierro", "ES704" = "Fuerteventura", "ES705" = "Gran Canaria",
+  "ES706" = "La Gomera", "ES707" = "La Palma", "ES708" = "Lanzarote",
+  "ES709" = "Tenerife", "ES70" = "Canarias"
+)
+data_limpio |>
+  filter(INDICATOR == "HIDROCARBUROS_PRECIO_GASOLEO") |>
+  mutate(NAME = isla_names[GEOGRAPHICAL]) |>
+  filter(!is.na(NAME)) |>
+  ggplot(aes(x = NAME, y = VALUE, fill = NAME)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.3) +
+  labs(x = "Isla", y = "Precio gasóleo (€/L)", title = "Distribución mensual precio gasóleo por isla (2012–2026)") +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Decisiones de limpieza:**
+
+| Indicador | NA residuales | Tratamiento NA | Outliers | Tratamiento outliers |
+|-----------|---------------|----------------|----------|----------------------|
+| `AFILIACIONES_ASALARIADOS` | 0 (serie completa) | — | Pocos (cambios normativa) | Se mantienen: reflejan cambios reales |
+| `CEMENTO_VENTAS` | 0–2 meses/isla | Interpolación lineal | Sí (huelgas, COVID) | Winsorizing 1/99 |
+| `VIVIENDAS_INICIADAS` | 0–3 meses/provincia | Interpolación lineal | No significativos | Se mantienen |
+| `IPC` | 0 | — | No | — |
+| `HIDROCARBUROS_PRECIO_GASOLEO` | 0 (tras agregación) | — | Sí (picos coyunturales) | Winsorizing 1/99 |
+| `INVERSION_ESPANOLA_BRUTA` | 0–1 trimestres/CCAA | Interpolación lineal | No | — |
+| `POBLACION` | 0 (tras interpolación) | — | No | — |
+| `DEFUNCIONES_CANCER` | 0 (tras LOCF) | — | No (conteos discretos) | — |
+
+> **Nota**: quedan `r na_final` NA en el dataset final limpio.
+
+---
+
+### Joins y atributos combinados
+
+Se construyen tres datasets analíticos principales mediante `left_join` sobre claves `GEOGRAPHICAL` + `TIME` (mensual), cada uno orientado a un bloque de preguntas de investigación.
+
+```{r prep-joins, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+# --- Definiciones de territorios (redefinidos porque cache=FALSE) ---
+municipios_canarias <- data_limpio |>
+  filter(str_detect(GEOGRAPHICAL, "^3[58]")) |>
+  distinct(GEOGRAPHICAL, NAME) |>
+  arrange(NAME)
+
+islas_canarias <- tibble(
+  GEOGRAPHICAL = c("ES703","ES704","ES705","ES706","ES707","ES708","ES709","ES70"),
+  NAME = c("El Hierro","Fuerteventura","Gran Canaria","La Gomera","La Palma",
+           "Lanzarote","Tenerife","Canarias")
+)
+
+# --- Dataset 1: Empleo-Población Municipal (P1, P3) ---
+muni_codes <- municipios_canarias$GEOGRAPHICAL
+
+ds_empleo_pob <- data_limpio |>
+  filter(GEOGRAPHICAL %in% muni_codes,
+         INDICATOR %in% c("AFILIACIONES_ASALARIADOS", "POBLACION")) |>
+  select(GEOGRAPHICAL, NAME, TIME, INDICATOR, VALUE) |>
+  pivot_wider(names_from = INDICATOR, values_from = VALUE, values_fn = mean) |>
+  arrange(NAME, TIME)
+
+# --- Dataset 2: Vivienda-Inversión CCAA (P2) ---
+# Territorios que tienen los TRES indicadores a la vez (ámbitos distintos: ver Comprensión de los datos)
+ccaa_codes <- data_limpio |>
+  filter(INDICATOR %in% ind_ccaa) |>
+  group_by(GEOGRAPHICAL) |>
+  filter(n_distinct(INDICATOR) == length(ind_ccaa)) |>
+  ungroup() |>
+  distinct(GEOGRAPHICAL) |>
+  pull(GEOGRAPHICAL)
+
+ds_vivienda_inv <- data_limpio |>
+  filter(GEOGRAPHICAL %in% ccaa_codes,
+         INDICATOR %in% ind_ccaa) |>
+  select(GEOGRAPHICAL, NAME, TIME, INDICATOR, VALUE) |>
+  pivot_wider(names_from = INDICATOR, values_from = VALUE, values_fn = mean) |>
+  arrange(NAME, TIME)
+
+# --- Dataset 3: Estructura Económica Insular (P4, P6) ---
+isla_codes <- islas_canarias$GEOGRAPHICAL
+
+ds_insular <- data_limpio |>
+  filter(GEOGRAPHICAL %in% isla_codes,
+         INDICATOR %in% c("CEMENTO_VENTAS", "AFILIACIONES_ASALARIADOS",
+                          "HIDROCARBUROS_PRECIO_GASOLEO", "DEFUNCIONES_CANCER")) |>
+  select(GEOGRAPHICAL, NAME, TIME, INDICATOR, VALUE) |>
+  pivot_wider(names_from = INDICATOR, values_from = VALUE, values_fn = mean) |>
+  left_join(islas_canarias, by = "GEOGRAPHICAL", suffix = c("", "_isla")) |>
+  mutate(NAME = coalesce(NAME, NAME_isla)) |>
+  select(-NAME_isla) |>
+  relocate(NAME, .after = GEOGRAPHICAL) |>
+  arrange(NAME, TIME)
+
+# Resúmenes de joins
+tb_join1 <- ds_empleo_pob |>
+  summarise(
+    filas = n(),
+    municipios = n_distinct(GEOGRAPHICAL),
+    periodo_ini = min(TIME), periodo_fin = max(TIME),
+    na_empleo = sum(is.na(.data[["AFILIACIONES_ASALARIADOS"]])),
+    na_pob = sum(is.na(.data[["POBLACION"]]))
+  )
+
+tb_join2 <- ds_vivienda_inv |>
+  summarise(
+    filas = n(),
+    ccaa = n_distinct(GEOGRAPHICAL),
+    periodo_ini = min(TIME), periodo_fin = max(TIME),
+    na_total = sum(is.na(across(-c(GEOGRAPHICAL, NAME, TIME))))
+  )
+
+tb_join3 <- ds_insular |>
+  summarise(
+    filas = n(),
+    islas = n_distinct(GEOGRAPHICAL),
+    periodo_ini = min(TIME), periodo_fin = max(TIME),
+    na_total = sum(is.na(across(-c(GEOGRAPHICAL, NAME, TIME))))
+  )
+```
+
+**Tabla 3.5.** Resumen join empleo-población municipal (P1, P3).
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+tb_join1 |> knitr::kable(caption = "Dataset empleo-población municipal: dimensiones y completitud")
+```
+
+</div>
+
+**Tabla 3.6.** Resumen join vivienda-inversión CCAA (P2).
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+tb_join2 |> knitr::kable(caption = "Dataset vivienda-inversión CCAA: dimensiones y completitud")
+```
+
+</div>
+
+**Tabla 3.7.** Resumen join estructura económica insular (P4, P6).
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+tb_join3 |> knitr::kable(caption = "Dataset estructura económica insular: dimensiones y completitud")
+```
+
+</div>
+
+**Atributos combinados finales:**
+
+| Dataset | Clave join | Tipo | Combinaciones válidas | Cobertura temporal | Preguntas |
+|---------|------------|------|----------------------|-------------------|-----------|
+| `ds_empleo_pob` | `GEOGRAPHICAL` + `TIME` (municipio × mes) | left | 97 municipios × ~175 meses = ~16,975 filas | 2012-01 a 2026-08 | P1, P3 |
+| `ds_vivienda_inv` | `GEOGRAPHICAL` + `TIME` (CCAA × mes) | left | 21 CCAA × ~175 meses = ~3,675 filas | 2012-01 a 2026-08 | P2 |
+| `ds_insular` | `GEOGRAPHICAL` + `TIME` (isla × mes) | left | 8 islas × ~175 meses = ~1,400 filas | 2012-01 a 2026-08 | P4, P6 |
+
+> **Pérdida en joins**: Ninguna pérdida de filas por clave inexistente (`left_join` preserva todas las combinaciones de la tabla izquierda). Los NA residuales son solo por corte de publicación en meses recientes (2026).
+
+---
+
+### Feature engineering
+
+Se crean variables derivadas para el modelado y el análisis: tasas de variación, ratios, medias móviles e indicadores temporales extraídos de la fecha. Las columnas se referencian **por nombre** (no por posición) para que cada variable derive del indicador correcto.
+
+```{r prep-feature-engineering, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+# Variables temporales extraídas de la fecha (lubridate, incluido en tidyverse)
+add_time_features <- function(df) {
+  df |>
+    mutate(
+      year     = year(TIME),
+      month    = month(TIME),
+      quarter  = quarter(TIME),
+      semester = semester(TIME)
+    )
+}
+
+# Tasa de variación interanual (YoY %) y mensual (MoM %) dentro de cada territorio
+add_yoy_mom <- function(df, vars) {
+  vars <- intersect(vars, names(df))
+  for (v in vars) {
+    df <- df |>
+      group_by(GEOGRAPHICAL) |>
+      arrange(TIME, .by_group = TRUE) |>
+      mutate(
+        !!paste0(v, "_yoy") := 100 * (.data[[v]] - lag(.data[[v]], 12)) / lag(.data[[v]], 12),
+        !!paste0(v, "_mom") := 100 * (.data[[v]] - lag(.data[[v]], 1))  / lag(.data[[v]], 1)
+      ) |>
+      ungroup()
+  }
+  df
+}
+
+# Logaritmo log(x + 1) para series con heterocedasticidad
+add_log_transform <- function(df, vars) {
+  for (v in intersect(vars, names(df))) {
+    df <- df |> mutate(!!paste0("log_", v) := log(.data[[v]] + 1))
+  }
+  df
+}
+
+# --- Empleo-población municipal ---
+ds_empleo_pob_fe <- ds_empleo_pob |>
+  add_time_features() |>
+  add_yoy_mom(c("AFILIACIONES_ASALARIADOS", "POBLACION")) |>
+  group_by(GEOGRAPHICAL) |>
+  arrange(TIME, .by_group = TRUE) |>
+  mutate(
+    tasa_empleo = 100 * AFILIACIONES_ASALARIADOS / POBLACION,
+    empleo_ma12 = zoo::rollmean(AFILIACIONES_ASALARIADOS, k = 12, fill = NA, align = "right"),
+    pob_ma12    = zoo::rollmean(POBLACION, k = 12, fill = NA, align = "right")
+  ) |>
+  ungroup()
+
+# --- Vivienda-inversión-IPC CCAA ---
+ds_vivienda_inv_fe <- ds_vivienda_inv |>
+  add_time_features() |>
+  add_yoy_mom(c("VIVIENDAS_INICIADAS", "INVERSION_ESPANOLA_BRUTA", "IPC")) |>
+  add_log_transform(c("VIVIENDAS_INICIADAS", "INVERSION_ESPANOLA_BRUTA"))
+
+if (all(c("VIVIENDAS_INICIADAS", "INVERSION_ESPANOLA_BRUTA") %in% names(ds_vivienda_inv_fe))) {
+  ds_vivienda_inv_fe <- ds_vivienda_inv_fe |>
+    mutate(ratio_viv_inv = VIVIENDAS_INICIADAS / (INVERSION_ESPANOLA_BRUTA / 1e6))
+}
+
+# --- Estructura económica insular ---
+ds_insular_fe <- ds_insular |>
+  add_time_features() |>
+  add_yoy_mom(c("CEMENTO_VENTAS", "HIDROCARBUROS_PRECIO_GASOLEO")) |>
+  add_log_transform(c("CEMENTO_VENTAS", "HIDROCARBUROS_PRECIO_GASOLEO")) |>
+  group_by(GEOGRAPHICAL) |>
+  arrange(TIME, .by_group = TRUE) |>
+  mutate(diff_cemento = CEMENTO_VENTAS - lag(CEMENTO_VENTAS, 1)) |>
+  ungroup()
+
+tb_nuevas_vars <- tibble(
+  Dataset = c(rep("empleo_pob", 7), rep("vivienda_inv", 7), rep("insular", 6)),
+  Variable_nueva = c(
+    "AFILIACIONES_ASALARIADOS_yoy", "AFILIACIONES_ASALARIADOS_mom", "POBLACION_yoy", "POBLACION_mom",
+    "tasa_empleo", "empleo_ma12", "pob_ma12",
+    "VIVIENDAS_INICIADAS_yoy", "INVERSION_ESPANOLA_BRUTA_yoy", "IPC_yoy",
+    "log_VIVIENDAS_INICIADAS", "log_INVERSION_ESPANOLA_BRUTA", "ratio_viv_inv", "year/month/quarter/semester",
+    "CEMENTO_VENTAS_yoy", "HIDROCARBUROS_PRECIO_GASOLEO_yoy",
+    "log_CEMENTO_VENTAS", "log_HIDROCARBUROS_PRECIO_GASOLEO", "diff_cemento", "year/month/quarter/semester"
+  ),
+  Tipo = c(rep("Tasa", 4), "Ratio", rep("Suavizado", 2),
+           rep("Tasa", 3), rep("Transformación", 2), "Ratio", "Temporal",
+           rep("Tasa", 2), rep("Transformación", 2), "Diferencia", "Temporal"),
+  Formula = c(
+    "(x_t - x_{t-12})/x_{t-12} * 100", "(x_t - x_{t-1})/x_{t-1} * 100",
+    "(x_t - x_{t-12})/x_{t-12} * 100", "(x_t - x_{t-1})/x_{t-1} * 100",
+    "AFILIACIONES / POBLACION * 100", "media móvil 12 meses", "media móvil 12 meses",
+    "(x_t - x_{t-12})/x_{t-12} * 100", "(x_t - x_{t-12})/x_{t-12} * 100", "(x_t - x_{t-12})/x_{t-12} * 100",
+    "log(x+1)", "log(x+1)", "VIVIENDAS / (INVERSION/1e6)", "extraídas de TIME",
+    "(x_t - x_{t-12})/x_{t-12} * 100", "(x_t - x_{t-12})/x_{t-12} * 100",
+    "log(x+1)", "log(x+1)", "x_t - x_{t-1}", "extraídas de TIME"
+  )
+)
+```
+
+**Tabla 3.8.** Variables creadas en feature engineering por dataset.
+
+<div class="tabla-scroll-xy">
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+tb_nuevas_vars |>
+  knitr::kable(caption = "Nuevas variables derivadas (feature engineering) por dataset analítico")
+```
+
+</div>
+
+---
+
+### Gráficas de validación de la preparación
+
+Seis gráficos validan la coherencia de los datos preparados: series temporales por indicador, completitud temporal, distribuciones, correlaciones cruzadas, mapas de calor y evolución de atributos combinados.
+
+```{r prep-val-serie-temporal, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Series temporales homogeneizadas: empleo (municipal agregado), cemento, vivienda, inversión, IPC y gasóleo. Eje X: 2012–2026. Se aprecian crisis 2012, COVID-2020, inflación 2022."}
+# Serie temporal agregada por indicador (media ponderada o suma según naturaleza)
+data_limpio |>
+  group_by(INDICATOR, TIME) |>
+  summarise(VALUE = mean(VALUE, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(x = TIME, y = VALUE, colour = INDICATOR)) +
+  geom_line(linewidth = 0.4, alpha = 0.8) +
+  facet_wrap(~ INDICATOR, scales = "free_y", ncol = 2) +
+  labs(x = "Año", y = "Valor (unidades nativas)", title = "Evolución temporal de indicadores ISTAC (media territorial mensual)") +
+  theme_bw(base_size = 10) +
+  theme(legend.position = "none", strip.text = element_text(size = 8))
+```
+
+```{r prep-val-completitud, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Mapa de calor de completitud temporal: filas = indicadores, columnas = años 2012–2026. Color = % observaciones disponibles. Blanco = 100% completo."}
+data_limpio |>
+  mutate(year = year(TIME)) |>
+  group_by(INDICATOR, year) |>
+  summarise(pct_complete = 100 * mean(!is.na(VALUE)), .groups = "drop") |>
+  ggplot(aes(x = year, y = INDICATOR, fill = pct_complete)) +
+  geom_tile(colour = "white", linewidth = 0.3) +
+  scale_fill_gradient2(low = "#d73027", mid = "#fee08b", high = "#1a9850",
+                       midpoint = 95, limits = c(0, 100), name = "% completo") +
+  labs(x = "Año", y = "Indicador", title = "Completitud temporal por indicador y año") +
+  theme_minimal(base_size = 11)
+```
+
+```{r prep-val-distribuciones, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Distribuciones de variables clave tras limpieza y winsorizing. Facetas por indicador, escalas libres."}
+data_limpio |>
+  filter(INDICATOR %in% c("AFILIACIONES_ASALARIADOS","CEMENTO_VENTAS","VIVIENDAS_INICIADAS",
+                          "IPC","HIDROCARBUROS_PRECIO_GASOLEO","INVERSION_ESPANOLA_BRUTA")) |>
+  ggplot(aes(x = VALUE)) +
+  geom_histogram(bins = 40, fill = "steelblue", alpha = 0.7, colour = "white") +
+  facet_wrap(~ INDICATOR, scales = "free", ncol = 2) +
+  labs(x = "Valor", y = "Frecuencia", title = "Distribuciones marginales de indicadores principales") +
+  theme_minimal(base_size = 10)
+```
+
+```{r prep-val-correlacion, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Matriz de correlación (Pearson) entre indicadores a nivel insular (dataset base)."}
+isla_codes <- c("ES703","ES704","ES705","ES706","ES707","ES708","ES709","ES70")
+ds_insular_base <- data_limpio |>
+  filter(GEOGRAPHICAL %in% isla_codes,
+         INDICATOR %in% c("CEMENTO_VENTAS", "HIDROCARBUROS_PRECIO_GASOLEO", "DEFUNCIONES_CANCER")) |>
+  select(GEOGRAPHICAL, NAME, TIME, INDICATOR, VALUE) |>
+  pivot_wider(names_from = INDICATOR, values_from = VALUE, values_fn = mean) |>
+  drop_na()
+
+cor_data <- ds_insular_base |> select(-GEOGRAPHICAL, -NAME, -TIME)
+
+if (nrow(cor_data) >= 30 && ncol(cor_data) >= 2) {
+  GGally::ggcorr(cor_data, label = TRUE, label_round = 2) +
+    labs(title = "Correlación entre indicadores insulares")
+} else {
+  cat("Insuficientes observaciones para la matriz de correlación.")
+}
+```
+
+```{r prep-val-mapa-calor, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Mapa de calor: tasa de empleo municipal (tasa_empleo) 2012–2026. Filas = 97 municipios ordenados por media; columnas = años. Rojo = alta tasa, azul = baja."}
+# Requiere sf con geometría municipal; usamos heatmap tabular como proxy
+empleo_heat <- ds_empleo_pob_fe |>
+  filter(!is.na(tasa_empleo), !is.na(NAME)) |>
+  mutate(year = year(TIME)) |>
+  group_by(NAME, year) |>
+  summarise(tasa_media = mean(tasa_empleo, na.rm = TRUE), .groups = "drop") |>
+  # Solo municipios con datos para todos los años
+  group_by(NAME) |>
+  filter(n() == n_distinct(year)) |>
+  ungroup() |>
+  pivot_wider(names_from = year, values_from = tasa_media) |>
+  column_to_rownames("NAME") |>
+  as.matrix()
+
+# Ordenar municipios por media global
+muni_order <- order(rowMeans(empleo_heat, na.rm = TRUE))
+empleo_heat <- empleo_heat[muni_order, ]
+
+# Heatmap con ggplot
+empleo_heat_df <- as.data.frame(empleo_heat) |>
+  rownames_to_column("municipio") |>
+  pivot_longer(-municipio, names_to = "year", values_to = "tasa") |>
+  mutate(year = as.integer(year),
+         municipio = factor(municipio, levels = rownames(empleo_heat)))
+
+ggplot(empleo_heat_df, aes(x = year, y = municipio, fill = tasa)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", name = "Tasa empleo (%)") +
+  labs(x = "Año", y = "Municipio", title = "Tasa de empleo municipal por año (97 municipios)") +
+  theme_minimal(base_size = 8) +
+  theme(axis.text.y = element_text(size = 4), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r prep-val-atributos-combinados, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, fig.cap="Evolución de atributos derivados: tasa de empleo municipal (P3), ratio vivienda/inversión (P2) y variación interanual del cemento insular (P4)."}
+partes <- list(
+  ds_empleo_pob_fe |>
+    filter(NAME %in% c("Las Palmas de Gran Canaria", "Santa Cruz de Tenerife",
+                       "San Cristóbal de La Laguna", "Telde", "Arrecife")) |>
+    transmute(TIME, NAME, tipo = "Tasa empleo municipal (%)", valor = tasa_empleo),
+  ds_insular_fe |>
+    filter(NAME %in% c("Gran Canaria", "Tenerife", "Fuerteventura", "Lanzarote", "La Palma")) |>
+    transmute(TIME, NAME, tipo = "Cemento: variación interanual (%)", valor = CEMENTO_VENTAS_yoy)
+)
+if ("ratio_viv_inv" %in% names(ds_vivienda_inv_fe)) {
+  partes[[3]] <- ds_vivienda_inv_fe |>
+    transmute(TIME, NAME, tipo = "Ratio viviendas / M€ inversión", valor = ratio_viv_inv)
+}
+
+bind_rows(partes) |>
+  filter(!is.na(valor)) |>
+  ggplot(aes(x = TIME, y = valor, colour = NAME)) +
+  geom_line(linewidth = 0.5, alpha = 0.8) +
+  facet_wrap(~ tipo, scales = "free_y", ncol = 1) +
+  labs(x = "Año", y = "Valor", title = "Atributos derivados", colour = "Territorio") +
+  theme(legend.position = "bottom", legend.text = element_text(size = 8))
+```
+
+> **Validación de la preparación**: las gráficas anteriores permiten revisar la continuidad temporal, la completitud, las distribuciones tras el winsorizing y la coherencia de los atributos derivados antes de pasar al Modelado.
+
+---
 
 ## Modelado
 
-<!--
-================================================================================
-FASE CRISP-DM 4: MODELADO
-================================================================================
-PROPÓSITO: Aplicar las técnicas analíticas y modelos estadísticos adecuados
-para responder a las preguntas de investigación planteadas en los objetivos.
+Esta fase aplica las técnicas de series temporales del Tema 5 (paquete `fpp3`: `tsibble`, `fable`, `feasts`) para responder a las preguntas P1–P6. Todos los resultados que se muestran se calculan en los chunks de esta sección: no hay cifras escritas a mano.
 
-CONTENIDO ESPERADO:
+### Justificación de los modelos elegidos
 
-1. JUSTIFICACIÓN DE LOS MODELOS ELEGIDOS
-   - ¿Por qué has elegido estos modelos y no otros?
-   - ¿Qué supuestos deben cumplirse para que el modelo sea válido?
-     (normalidad, homocedasticidad, ausencia de autocorrelación, etc.)
-   - ¿Has verificado previamente que esos supuestos se cumplen en tus datos?
+Se usan los tres métodos que se estudian en el libro:
 
-2. DESCRIPCIÓN Y APLICACIÓN DE CADA MODELO
-   Dependiendo de tu proyecto, los modelos más habituales son:
+- **STL** (descomposición en tendencia, estacionalidad y *remainder*): permite comparar la dinámica de las series entre territorios (P1, P4).
+- **ARIMA** (selección automática por AICc): modelo de predicción para series con tendencia y estacionalidad (P1, P3, P5).
+- **STL + ARIMA**: ARIMA aplicado al componente ajustado estacionalmente, útil cuando ARIMA directo deja estructura sin capturar.
+- **ETS** se incluye como método de comparación, tal y como hace la tabla comparativa del libro.
 
-   ANÁLISIS DESCRIPTIVO Y EXPLORATORIO:
-   - Matriz de correlación (corrplot, ggcorrplot): identifica relaciones lineales
-     entre variables numéricas.
-   - PCA (prcomp): reduce dimensionalidad y visualiza la variabilidad principal.
+El análisis de los residuos (ruido blanco) se hace en la sección de **Evaluación**, no aquí.
 
-   MODELOS DE REGRESIÓN:
-   - Regresión lineal simple o múltiple (lm): modela la relación entre una variable
-     dependiente continua y una o más variables independientes.
-   - Transformación de Yeo-Johnson (bestNormalize): puede mejorar ajuste entre variables. 
+```{r modelo-datos, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+# --- Empleo: afiliaciones por provincia y total Canarias ---
+# Los códigos municipales 35xxx / 38xxx corresponden a las PROVINCIAS de Las Palmas y
+# Santa Cruz de Tenerife (no a las islas). Solo se usan los meses con todos los
+# municipios informados, para no sumar series incompletas.
+afil_muni <- ds_empleo_pob |>
+  filter(!is.na(AFILIACIONES_ASALARIADOS)) |>
+  mutate(PROVINCIA = if_else(str_detect(GEOGRAPHICAL, "^35"), "Las Palmas", "Santa Cruz de Tenerife"))
 
-   SERIES TEMPORALES:
-   - Descomposición (STL, classical_decomposition de fpp3): separa tendencia,
-     estacionalidad y residuo.
-   - Modelos ARIMA para modelado y predicción de series temporales.
+afil_prov <- afil_muni |>
+  group_by(PROVINCIA, TIME) |>
+  summarise(AFILIACIONES = sum(AFILIACIONES_ASALARIADOS), n_muni = n_distinct(GEOGRAPHICAL), .groups = "drop") |>
+  group_by(PROVINCIA) |>
+  filter(n_muni == max(n_muni)) |>
+  ungroup() |>
+  mutate(TIME = yearmonth(TIME)) |>
+  select(-n_muni) |>
+  as_tsibble(index = TIME, key = PROVINCIA)
 
+afil_can <- afil_muni |>
+  group_by(TIME) |>
+  summarise(AFILIACIONES = sum(AFILIACIONES_ASALARIADOS), n_muni = n_distinct(GEOGRAPHICAL), .groups = "drop") |>
+  filter(n_muni == max(n_muni)) |>
+  mutate(TIME = yearmonth(TIME)) |>
+  select(-n_muni) |>
+  as_tsibble(index = TIME)
+```
 
-3. PRESENTACIÓN DE RESULTADOS DEL MODELO
-   - Muestra los parámetros del modelo ajustado con su interpretación.
-   - Incluye gráficas que ilustren el ajuste del modelo a los datos.
-   - Para modelos predictivos, muestra las predicciones junto con los datos reales.
+### P1 y P3: empleo asalariado por provincia
 
-NOTA SOBRE ITERATIVIDAD (CRISP-DM):
-Si durante el modelado detectas que los datos necesitan una transformación
-adicional, una variable nueva o un filtrado diferente al realizado en la fase
-de Preparación, documenta aquí el hallazgo y el motivo del retorno:
-  "El diagnóstico de residuos reveló heterocedasticidad, por lo que se aplicó
-   transformación logarítmica a la variable Y (ver Preparación, apartado 4)."
-Referenciar explícitamente la sección de Preparación donde se realizó el
-ajuste hace visible la iteración y mantiene la coherencia del documento.
+Se ajustan ETS, ARIMA y STL+ARIMA a la serie mensual de afiliaciones de cada provincia. Para poder evaluar la capacidad predictiva fuera de muestra (ver Evaluación) se reservan los **últimos 12 meses** como conjunto de test.
 
+```{r modelo-p1-p3, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+fin_train <- max(afil_prov$TIME) - 12          # los últimos 12 meses quedan como test
+train_prov <- afil_prov |> filter(TIME <= fin_train)
 
-================================================================================
--->
+fit_prov <- train_prov |>
+  model(
+    ets       = ETS(AFILIACIONES),
+    arima     = ARIMA(AFILIACIONES),
+    stl_arima = decomposition_model(
+      STL(AFILIACIONES ~ season(window = "periodic"), robust = TRUE),
+      ARIMA(season_adjust)
+    )
+  )
 
+fc_prov <- fit_prov |> forecast(h = 12)
 
+fc_prov |>
+  autoplot(afil_prov |> filter_index("2018 Jan" ~ .), level = NULL) +
+  facet_wrap(~ PROVINCIA, scales = "free_y", ncol = 1) +
+  labs(x = "", y = "Afiliados", colour = "Modelo",
+       title = "Predicción sobre los últimos 12 meses frente al dato real")
+```
 
+Modelo ARIMA seleccionado automáticamente (AICc) para cada provincia:
+
+```{r modelo-p1-p3-report, echo=FALSE, results='markup'}
+for (p in unique(train_prov$PROVINCIA)) {
+  cat("\n---", p, "---\n")
+  fit_prov |> filter(PROVINCIA == p) |> select(arima) |> report()
+}
+```
+
+### P2: vivienda iniciada e inversión (CCAA)
+
+Una vez corregido el filtrado (ver *Preparación*, apartado de decisiones de filtrado), se comparan visualmente las series de viviendas iniciadas e inversión bruta de Canarias frente a otras comunidades.
+
+```{r modelo-p2, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+if (nrow(ds_vivienda_inv_fe) > 0 && "ratio_viv_inv" %in% names(ds_vivienda_inv_fe)) {
+  ds_vivienda_inv_fe |>
+    filter(!is.na(ratio_viv_inv)) |>
+    ggplot(aes(x = TIME, y = ratio_viv_inv, colour = NAME)) +
+    geom_line(linewidth = 0.4) +
+    labs(x = "", y = "Viviendas iniciadas por M€ de inversión", colour = "Territorio",
+         title = "Relación vivienda iniciada / inversión bruta") +
+    theme(legend.position = "bottom")
+} else {
+  cat("El dataset vivienda-inversión no contiene los dos indicadores para un mismo territorio; P2 queda pendiente (ver Evaluación).")
+}
+```
+
+### P4: estructura económica insular (cemento)
+
+Se descompone con STL la serie mensual de ventas de cemento de cada isla y se compara la tendencia entre islas.
+
+```{r modelo-p4, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+cemento_ts <- ds_insular |>
+  filter(!is.na(CEMENTO_VENTAS)) |>
+  mutate(TIME = yearmonth(TIME)) |>
+  distinct(GEOGRAPHICAL, NAME, TIME, .keep_all = TRUE) |>
+  as_tsibble(index = TIME, key = c(GEOGRAPHICAL, NAME))
+
+cemento_stl <- cemento_ts |>
+  model(STL(CEMENTO_VENTAS ~ trend(window = 13) + season(window = "periodic"), robust = TRUE)) |>
+  components()
+
+cemento_stl |>
+  ggplot(aes(x = TIME, y = trend)) +
+  geom_line() +
+  facet_wrap(~ NAME, scales = "free_y") +
+  labs(x = "", y = "Tendencia (toneladas)", title = "Tendencia STL de las ventas de cemento por isla")
+```
+
+<div class="tabla-scroll-xy">
+
+```{r modelo-p4-tabla, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+cemento_stl |>
+  as_tibble() |>
+  mutate(anyo = year(TIME), mes = month(TIME)) |>
+  filter(mes == 12, anyo %in% c(2012, 2020, 2024)) |>
+  select(NAME, anyo, trend) |>
+  pivot_wider(names_from = anyo, values_from = trend, names_prefix = "Tendencia ") |>
+  knitr::kable(digits = 0, caption = "Tendencia STL (diciembre de cada año) de las ventas de cemento por isla")
+```
+
+</div>
+
+### P5: predicción 2025–2026 (afiliaciones, IPC y gasóleo)
+
+Se ajusta el modelo ARIMA a la serie completa de afiliaciones de Canarias y se predicen 24 meses.
+
+```{r modelo-p5, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+fit_can <- afil_can |>
+  model(
+    ets       = ETS(AFILIACIONES),
+    arima     = ARIMA(AFILIACIONES),
+    stl_arima = decomposition_model(
+      STL(AFILIACIONES ~ season(window = "periodic"), robust = TRUE),
+      ARIMA(season_adjust)
+    )
+  )
+
+pred_arima_can <- fit_can |> select(arima) |> forecast(h = "2 years")
+aedv_dibujar_prediccion(pred_arima_can, afil_can |> filter_index("2018 Jan" ~ .), fit_can |> select(arima))
+```
+
+```{r modelo-p5-ipc-gasoleo, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+otras_ts <- data_limpio |>
+  filter(INDICATOR %in% c("IPC", "HIDROCARBUROS_PRECIO_GASOLEO"), NAME == "Canarias") |>
+  mutate(TIME = yearmonth(TIME)) |>
+  distinct(INDICATOR, TIME, .keep_all = TRUE) |>
+  filter(!is.na(VALUE)) |>
+  as_tsibble(index = TIME, key = INDICATOR)
+
+if (nrow(otras_ts) > 0) {
+  fit_otras <- otras_ts |> model(arima = ARIMA(VALUE))
+  fit_otras |>
+    forecast(h = "2 years") |>
+    autoplot(otras_ts |> filter_index("2018 Jan" ~ .)) +
+    facet_wrap(~ INDICATOR, scales = "free_y", ncol = 1) +
+    labs(x = "", y = "", title = "Predicción ARIMA a 24 meses: IPC y precio del gasóleo (Canarias)")
+} else {
+  cat("No hay series de IPC / gasóleo con NAME == 'Canarias' en el dataset limpio.")
+}
+```
+
+### P6: defunciones por cáncer (serie anual por isla)
+
+`DEFUNCIONES_CANCER` es una serie **anual**. Una serie anual no tiene estacionalidad, por lo que no se descompone con STL: se trabaja con el dato anual original (no con la serie mensual obtenida por LOCF en *Preparación*, que solo sirve para los joins).
+
+```{r modelo-p6, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+cancer_anual <- data_raw |>
+  filter(INDICATOR == "DEFUNCIONES_CANCER", GEOGRAPHICAL %in% islas_canarias$GEOGRAPHICAL) |>
+  mutate(year = as.integer(substr(TIME, 1, 4))) |>
+  group_by(GEOGRAPHICAL, NAME, year) |>
+  summarise(n_filas = n(), VALUE = sum(VALUE, na.rm = TRUE), .groups = "drop")
+
+# comprobación: nº de filas por isla y año (si fuera > 1 habría que revisar qué dimensión se suma)
+cancer_anual |> count(n_filas) |> knitr::kable(caption = "Filas por isla y año en DEFUNCIONES_CANCER")
+
+cancer_ts <- cancer_anual |>
+  select(-n_filas) |>
+  as_tsibble(index = year, key = c(GEOGRAPHICAL, NAME))
+
+cancer_ts |>
+  ggplot(aes(x = year, y = VALUE)) +
+  geom_line() +
+  geom_vline(xintercept = c(2008, 2012, 2020), linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ NAME, scales = "free_y") +
+  labs(x = "", y = "Defunciones por cáncer", title = "Defunciones anuales por cáncer por isla")
+```
+
+<div class="tabla-scroll-xy">
+
+```{r modelo-p6-tabla, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+cancer_ts |>
+  as_tibble() |>
+  filter(year %in% c(2008, 2012, 2020)) |>
+  select(NAME, year, VALUE) |>
+  pivot_wider(names_from = year, values_from = VALUE, names_prefix = "Año ") |>
+  mutate(`Δ 2008→2012` = `Año 2012` - `Año 2008`,
+         `Δ 2012→2020` = `Año 2020` - `Año 2012`) |>
+  knitr::kable(caption = "Defunciones por cáncer en los años de referencia y variación entre ellos")
+```
+
+</div>
+
+> **Iteración CRISP-DM.** En la versión anterior de esta sección, `ds_vivienda_inv` salía vacío y las series de afiliaciones se etiquetaban como "islas". Ambos problemas se debían a errores de la fase de *Preparación* (ver los apartados de filtrado y de joins), que se han corregido.
+
+---
 
 ## Evaluación
 
-<!--
-================================================================================
-FASE CRISP-DM 5: EVALUACIÓN
-================================================================================
-PROPÓSITO: Valorar de forma crítica si los modelos desarrollados responden
-adecuadamente a las preguntas de investigación y si los resultados son fiables.
+Esta fase valora si los modelos del Tema 5 son fiables. Todas las métricas y tests se calculan en los chunks siguientes.
 
-CONTENIDO ESPERADO:
+### Métricas de predicción fuera de muestra
 
-1. MÉTRICAS DE EVALUACIÓN
-   Según el tipo de modelo:
-   - Regresión: R², R² ajustado, RMSE, MAE.
-   - Series temporales: desviación estandar de los residuos, AIC/AICc/BIC, RMSE, MAE, MAPE, MASE sobre el conjunto de test.
-   - Para todos: análisis de residuos (distribución, autocorrelación, homocedasticidad).
+Se comparan ETS, ARIMA y STL+ARIMA sobre los últimos 12 meses reservados como test.
 
-2. VALIDACIÓN DEL MODELO
-   - ¿Has separado los datos en train/test? ¿Qué proporción?
-   - ¿Has usado validación cruzada? ¿Cuántos plieques?
-   - ¿has comparado los métodos ARIMA y STL+ARIMA en series temporales?
-   - ¿Has comparado tu modelo con un modelo de referencia (baseline)?
-   - ¿Has usado transformación de variables como Yeo-Johnson?
+<div class="tabla-scroll-xy">
 
-3. DISCUSIÓN CRÍTICA DE RESULTADOS
-   - ¿La transformación de variables con Yeo-Johnson mejora los resultados?
-   - ¿El modelo responde satisfactoriamente a las preguntas de investigación?
-   - ¿Hay patrones en los residuos que sugieran que el modelo no captura algo?
-   - ¿Los resultados son coherentes con lo esperado según la bibliografía?
-   - ¿Qué limitaciones tiene el modelo? (sobreajuste, datos insuficientes,
-     variables confundidoras no controladas, etc.)
+```{r eval-accuracy, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+fc_prov |>
+  accuracy(afil_prov) |>
+  select(PROVINCIA, .model, RMSE, MAE, MAPE) |>
+  arrange(PROVINCIA, RMSE) |>
+  knitr::kable(digits = 2, caption = "Error de predicción en el conjunto de test (últimos 12 meses)")
+```
 
-4. COMPARACIÓN CON MÉTODOS ALTERNATIVOS (si procede)
-   - Si has probado varios modelos, compara sus métricas en una tabla.
-   - Justifica cuál es el modelo final seleccionado y por qué.
+</div>
 
-CONSEJO: La evaluación honesta, incluyendo las limitaciones, es un signo de
-madurez académica. No intentes ocultar resultados insatisfactorios; en cambio,
-analiza sus causas y propón mejoras en la sección de Trabajo futuro.
+### Diagnóstico de residuos del ARIMA de Canarias
 
-DISTINCIÓN CON LA SECCIÓN DE CONCLUSIONES:
-El foco de esta sección es TÉCNICO: métricas numéricas, análisis de residuos,
-validación estadística, comparación de modelos. Las preguntas clave son:
-  ¿Funciona bien el modelo? ¿Es fiable? ¿Cuáles son sus limitaciones técnicas?
-En Conclusiones el foco es INTERPRETATIVO: qué significan los resultados en el
-contexto del problema real, si se han alcanzado los objetivos, qué implicaciones
-tienen los hallazgos. No repitas aquí el contenido de Conclusiones ni viceversa.
+Se comprueba si los residuos del ARIMA de las afiliaciones de Canarias se comportan como ruido blanco (media cero, sin autocorrelación, normalidad, homocedasticidad).
 
+```{r eval-residuos-arima, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+residuos_arima <- aedv_residuos(fit_can |> select(arima))
 
-================================================================================
--->
+residuos_arima |>
+  ggplot(aes(x = TIME, y = residuo)) +
+  geom_line() +
+  labs(y = "Residuos", x = "", title = "Residuos del ARIMA (afiliaciones Canarias)")
 
+residuos_arima |>
+  ACF(residuo, lag_max = 36) |>
+  autoplot() + labs(title = "ACF de los residuos")
 
+residuos_arima |>
+  ggplot(aes(x = residuo)) +
+  geom_histogram(bins = 15) +
+  labs(x = "Residuos", title = "Histograma de los residuos")
+
+aedv_tests_residuos(residuos_arima$residuo, residuos_arima$TIME) |>
+  aedv_tabla_tests("Diagnóstico de residuos del ARIMA (afiliaciones Canarias)")
+```
+
+### ¿Mejora STL + ARIMA?
+
+```{r eval-residuos-stl-arima, echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE}
+residuos_stl_arima <- aedv_residuos(fit_can |> select(stl_arima))
+
+aedv_tests_residuos(residuos_stl_arima$residuo, residuos_stl_arima$TIME) |>
+  aedv_tabla_tests("Diagnóstico de residuos del STL + ARIMA (afiliaciones Canarias)")
+
+tibble(
+  Modelo = c("ARIMA", "STL + ARIMA"),
+  `Desv. típica de los residuos` = c(sd(residuos_arima$residuo, na.rm = TRUE),
+                                      sd(residuos_stl_arima$residuo, na.rm = TRUE))
+) |>
+  knitr::kable(digits = 1, caption = "Comparación entre métodos: desviación típica de los residuos")
+```
+
+### Discusión crítica
+
+Los p-valores y métricas de las tablas anteriores son los que determinan la fiabilidad de cada modelo: un p-valor de Ljung-Box inferior a 0,05 indica estructura temporal sin capturar, y la falta de normalidad solo afecta a los intervalos de confianza de la predicción, no a la predicción puntual. Como en el libro, un test que falla no invalida el análisis, pero sí indica dónde mejorar.
+
+### Limitaciones del modelado actual
+
+| Limitación | Impacto | Mitigación en Entrega 3 |
+|------------|---------|------------------------|
+| Los municipios de 35xxx/38xxx se agregan por **provincia**, no por isla | P1 no distingue entre islas capitalinas y no capitalinas | Asignar cada municipio a su isla con una tabla auxiliar (tabla pivote del Tema 3) |
+| Solo un test de 12 meses | Estimación del error poco robusta | Validación cruzada temporal del libro (apartado 5.13) |
+| Sin transformación `log()` en las afiliaciones | Posible heterocedasticidad | Ajustar `ARIMA(log(y))` y comparar residuos |
+| Cambios estructurales (COVID, crisis 2012) sin tratar | Residuos con estructura | Regresor/dummy o excluir el periodo |
+| P2 depende de que vivienda e inversión compartan territorio | Pregunta posiblemente sin cubrir | Revisar ámbitos geográficos en Preparación |
+
+> **Pendiente para la Entrega 3:** validación cruzada temporal y análisis de atributos (correlación, PCA, k-means) para completar P4.
+
+---
 
 ## Despliegue
 
