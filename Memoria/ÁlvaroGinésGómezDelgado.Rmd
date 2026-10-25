@@ -1379,86 +1379,107 @@ tienen los hallazgos. No repitas aquí el contenido de Conclusiones ni viceversa
 
 ### Código aplicado: evaluación y diagnóstico
 
-Se evalúa el error sobre el tramo de prueba reservado al final de la serie y se revisan los residuos del modelo ARIMA. Las métricas deben interpretarse en las unidades del indicador y compararse con las del modelo alternativo usando exactamente el mismo periodo de prueba.
+Se evalúa el error sobre el tramo de prueba reservado al final de la serie y se revisan los residuos del modelo ARIMA. Las métricas deben interpretarse en las unidades del indicador y compararse con las del modelo alternativo usando exactamente el mismo periodo de prueba. La referencia de último valor se incluye como baseline sencillo. El contraste de Ljung–Box evalúa autocorrelación residual; Shapiro–Wilk es orientativo y no demuestra por sí solo la validez del modelo. La validación cruzada temporal y las funciones auxiliares `aedv_` indicadas en el material docente deben añadirse usando sus firmas exactas documentadas en el libro antes de dar la evaluación por cerrada.
 
 ```{r evaluacion-series, echo=TRUE, fig.width=9, fig.height=5}
 if (exists("modelo_arima") && exists("pred_arima") &&
-    exists("pred_stl_arima") && exists("test_valores")) {
+    exists("pred_stl_arima") && exists("test_valores") &&
+    exists("train_ts")) {
 
-  calcular_metricas <- function(real, prediccion, modelo) {
-    error <- real - prediccion
-    # Escala MASE calculada exclusivamente con el conjunto de entrenamiento,
-    # evitando utilizar el test para definir la referencia.
-    escala <- mean(abs(diff(as.numeric(train_ts))), na.rm = TRUE)
+  # Métricas calculadas sobre exactamente el mismo conjunto de prueba.
+  calcular_metricas <- function(real, prediccion, modelo, escala_mase) {
+    error <- as.numeric(real) - as.numeric(prediccion)
     tibble::tibble(
       modelo = modelo,
       RMSE = sqrt(mean(error^2, na.rm = TRUE)),
       MAE = mean(abs(error), na.rm = TRUE),
-      MASE = ifelse(is.finite(escala) && escala > 0,
-                    mean(abs(error), na.rm = TRUE) / escala, NA_real_)
+      MASE = if (is.finite(escala_mase) && escala_mase > 0)
+        mean(abs(error), na.rm = TRUE) / escala_mase else NA_real_
     )
   }
 
+  escala_mase <- mean(abs(diff(as.numeric(train_ts))), na.rm = TRUE)
+  pred_baseline <- rep(tail(as.numeric(train_ts), 1), length(test_valores))
+
   tabla_metricas <- dplyr::bind_rows(
-    calcular_metricas(test_valores, as.numeric(pred_arima$mean), "ARIMA"),
+    calcular_metricas(test_valores, as.numeric(pred_arima$mean),
+                      "ARIMA", escala_mase),
     calcular_metricas(test_valores, as.numeric(pred_stl_arima$mean),
-                      "STL + ARIMA")
+                      "STL + ARIMA", escala_mase),
+    calcular_metricas(test_valores, pred_baseline,
+                      "Referencia: último valor", escala_mase)
   )
 
   knitr::kable(tabla_metricas, digits = 3,
-               caption = "Comparación de errores en el conjunto de prueba")
+               caption = "Errores predictivos en el conjunto de prueba")
 
-  # Diagnóstico explícito de residuos: serie temporal, ACF e histograma.
-  residuos_arima <- as.numeric(residuals(modelo_arima))
+  # Diagnóstico de residuos del ARIMA: evolución temporal, ACF e histograma.
+  residuos_arima <- as.numeric(stats::residuals(modelo_arima))
   residuos_arima <- residuos_arima[is.finite(residuos_arima)]
-  par(mfrow = c(3, 1))
-  plot(residuos_arima, type = "l", xlab = "Tiempo", ylab = "Residuo",
-       main = "Residuos del ARIMA")
-  stats::acf(residuos_arima, main = "ACF de los residuos")
-  hist(residuos_arima, breaks = "Sturges", main = "Histograma de residuos",
-       xlab = "Residuo")
-  par(mfrow = c(1, 1))
+
+  if (length(residuos_arima) > 2) {
+    par(mfrow = c(3, 1))
+    plot(residuos_arima, type = "l", xlab = "Tiempo", ylab = "Residuo",
+         main = "Residuos del ARIMA")
+    stats::acf(residuos_arima, main = "ACF de los residuos")
+    hist(residuos_arima, breaks = "Sturges",
+         main = "Histograma de residuos", xlab = "Residuo")
+    par(mfrow = c(1, 1))
+
+    # Contraste de autocorrelación residual. No sustituye la inspección gráfica.
+    lag_box <- min(12, floor(length(residuos_arima) / 5))
+    if (lag_box > 0) {
+      prueba_box <- stats::Box.test(
+        residuos_arima, lag = lag_box, type = "Ljung-Box",
+        fitdf = length(stats::coef(modelo_arima))
+      )
+      knitr::kable(
+        tibble::tibble(
+          prueba = "Ljung-Box",
+          estadistico = unname(prueba_box$statistic),
+          grados_libertad = unname(prueba_box$parameter),
+          p_valor = prueba_box$p.value
+        ),
+        digits = 4,
+        caption = "Contraste de autocorrelación de los residuos"
+      )
+    }
+
+    if (length(residuos_arima) >= 3 && length(residuos_arima) <= 5000) {
+      prueba_normalidad <- stats::shapiro.test(residuos_arima)
+      knitr::kable(
+        tibble::tibble(
+          prueba = "Shapiro-Wilk",
+          estadistico = unname(prueba_normalidad$statistic),
+          p_valor = prueba_normalidad$p.value
+        ),
+        digits = 4,
+        caption = "Contraste orientativo de normalidad de los residuos"
+      )
+    }
+  }
 
   tabla_criterios <- tibble::tibble(
     criterio = c("AIC", "AICc", "BIC", "Desviación típica de residuos"),
     valor = c(
-      AIC(modelo_arima),
+      stats::AIC(modelo_arima),
       if (!is.null(modelo_arima$aicc)) modelo_arima$aicc else NA_real_,
-      BIC(modelo_arima),
-      sd(residuals(modelo_arima), na.rm = TRUE)
+      stats::BIC(modelo_arima),
+      stats::sd(residuos_arima, na.rm = TRUE)
     )
   )
   knitr::kable(tabla_criterios, digits = 3,
                caption = "Criterios de información y dispersión residual")
 
 } else {
-  cat("La evaluación de series temporales no se ejecuta porque no se ha podido ajustar el modelo en la sección anterior.")
+  cat("La evaluación no se ejecuta porque no se ha podido ajustar el modelo en la sección anterior.")
 }
 ```
 
-```{r evaluacion-regresion, echo=TRUE, fig.width=8, fig.height=5}
-if (exists("modelo_lm")) {
-  # Métricas de ajuste de la regresión exploratoria.
-  resumen_lm <- summary(modelo_lm)
-  metricas_lm <- tibble::tibble(
-    metrica = c("R²", "R² ajustado", "RMSE residual"),
-    valor = c(
-      resumen_lm$r.squared,
-      resumen_lm$adj.r.squared,
-      sqrt(mean(residuals(modelo_lm)^2, na.rm = TRUE))
-    )
-  )
-  knitr::kable(metricas_lm, digits = 3,
-               caption = "Métricas de la regresión empleo-población")
+<!-- El análisis de regresión pertenece a la Entrega 3 y se incorpora cuando
+     exista un modelo_lm ajustado y documentado. -->
 
-  # Gráficos diagnósticos estándar de lm.
-  par(mfrow = c(2, 2))
-  plot(modelo_lm)
-  par(mfrow = c(1, 1))
-} else {
-  cat("No se evalúa la regresión porque no se han obtenido suficientes datos coincidentes.")
-}
-```
+
 
 **Limitaciones de la evaluación.** La validación temporal reserva el tramo final como test, pero todavía no aplica validación cruzada de origen móvil. La interpolación lineal puede suavizar variaciones reales; por eso se limita a huecos internos de la serie mensual y debe interpretarse como una decisión metodológica, no como dato observado. La descomposición STL se ajusta solo con entrenamiento. En la interpretación de los gráficos residuales se comprobará si la media se mantiene alrededor de cero, si la dispersión cambia con el tiempo y si la ACF muestra autocorrelación; estos gráficos son diagnósticos y no sustituyen por sí solos los contrastes formales exigidos por la asignatura.
 
