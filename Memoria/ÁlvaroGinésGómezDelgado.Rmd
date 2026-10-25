@@ -81,6 +81,17 @@ library(plotly)        # Convierte gráficos ggplot2 en interactivos con ggplotl
 library(ggplot2)       # Sistema de visualización declarativa (gramática de gráficos)
 library(tidyverse)     # Ecosistema de paquetes para ciencia de datos (dplyr, tidyr, etc.)
 
+
+
+library(urca)      # tests de raíces unitarias (KPSS, ADF)
+library(GGally)    # matrices de correlación y pares
+library(pxR)       # lectura de ficheros PC-Axis
+library(patchwork) # combinar varios ggplot
+library(lmtest)    # test de Breusch-Pagan
+library(gt)        # tablas con formato: diagnóstico de residuos coloreado
+
+
+
 # ============================================================
 # FICHEROS QUE TIENEN QUE ESTAR EN LA CARPETA DE LA MEMORIA
 # estilos.css y utilidades.R vienen en la carpeta ProyectoPersonal.
