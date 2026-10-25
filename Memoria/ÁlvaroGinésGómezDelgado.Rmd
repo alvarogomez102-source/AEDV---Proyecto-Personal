@@ -1322,6 +1322,8 @@ if (nrow(serie_empleo) >= 36 &&
 
 La regresión, la matriz de correlación y el PCA se reservan para la Entrega 3, de acuerdo con la planificación del proyecto.
 
+**Incidencia de reproducibilidad pendiente de resolver antes de entregar.** Este bloque llama a `forecast::auto.arima()`, `forecast::forecast()` y `forecast::stlf()`, aunque `forecast` no se carga en el documento. La comprobación `requireNamespace("forecast", quietly = TRUE)` solo detecta si está instalado; no demuestra que el procedimiento esté permitido por el libro. Para cumplir estrictamente la restricción de la asignatura, hay que sustituir estas llamadas por las funciones y utilidades documentadas en AEDV-libro y cargar el fichero `utilidades.R` correspondiente si el libro lo exige. No se debe añadir `forecast` únicamente para ocultar esta incompatibilidad.
+
 
 ## Evaluación
 
@@ -1379,7 +1381,7 @@ tienen los hallazgos. No repitas aquí el contenido de Conclusiones ni viceversa
 
 ### Código aplicado: evaluación y diagnóstico
 
-Se evalúa el error sobre el tramo de prueba reservado al final de la serie y se revisan los residuos del modelo ARIMA. Las métricas deben interpretarse en las unidades del indicador y compararse con las del modelo alternativo usando exactamente el mismo periodo de prueba. La referencia de último valor se incluye como baseline sencillo. El contraste de Ljung–Box evalúa autocorrelación residual; Shapiro–Wilk es orientativo y no demuestra por sí solo la validez del modelo. La validación cruzada temporal y las funciones auxiliares `aedv_` indicadas en el material docente deben añadirse usando sus firmas exactas documentadas en el libro antes de dar la evaluación por cerrada.
+Se evalúa el error sobre el tramo de prueba reservado al final de la serie y se revisan los residuos del modelo ARIMA. Las métricas deben interpretarse en las unidades del indicador y compararse con las del modelo alternativo usando exactamente el mismo periodo de prueba. La referencia de último valor se incluye como baseline sencillo. El contraste de Ljung–Box evalúa autocorrelación residual; Shapiro–Wilk es orientativo y no demuestra por sí solo la validez del modelo. La validación cruzada temporal y las funciones auxiliares `aedv_` indicadas en el material docente siguen siendo requisitos pendientes: no deben darse por satisfechos hasta incorporarlas con las firmas exactas documentadas en el libro. La versión actual no debe considerarse plenamente conforme con la restricción de librerías mientras siga utilizando el paquete `forecast`.
 
 ```{r evaluacion-series, echo=TRUE, fig.width=9, fig.height=5}
 if (exists("modelo_arima") && exists("pred_arima") &&
@@ -1398,7 +1400,15 @@ if (exists("modelo_arima") && exists("pred_arima") &&
     )
   }
 
-  escala_mase <- mean(abs(diff(as.numeric(train_ts))), na.rm = TRUE)
+  # MASE estacional para una serie mensual: error absoluto medio del baseline
+  # estacional ingenuo (valor del mismo mes del año anterior).
+  valores_train <- as.numeric(train_ts)
+  escala_mase <- if (length(valores_train) > 12) {
+    mean(abs(valores_train[13:length(valores_train)] -
+             valores_train[1:(length(valores_train) - 12)]), na.rm = TRUE)
+  } else {
+    NA_real_
+  }
   pred_baseline <- rep(tail(as.numeric(train_ts), 1), length(test_valores))
 
   tabla_metricas <- dplyr::bind_rows(
@@ -1481,7 +1491,7 @@ if (exists("modelo_arima") && exists("pred_arima") &&
 
 
 
-**Limitaciones de la evaluación.** La validación temporal reserva el tramo final como test, pero todavía no aplica validación cruzada de origen móvil. La interpolación lineal puede suavizar variaciones reales; por eso se limita a huecos internos de la serie mensual y debe interpretarse como una decisión metodológica, no como dato observado. La descomposición STL se ajusta solo con entrenamiento. En la interpretación de los gráficos residuales se comprobará si la media se mantiene alrededor de cero, si la dispersión cambia con el tiempo y si la ACF muestra autocorrelación; estos gráficos son diagnósticos y no sustituyen por sí solos los contrastes formales exigidos por la asignatura.
+**Limitaciones de la evaluación.** La validación temporal reserva el tramo final como test, pero todavía no aplica validación cruzada de origen móvil. Por tanto, los resultados son preliminares y no permiten afirmar que el rendimiento se mantenga en distintos orígenes temporales. La interpolación lineal puede suavizar variaciones reales; por eso se limita a huecos internos de la serie mensual y debe interpretarse como una decisión metodológica, no como dato observado. La descomposición STL se ajusta solo con entrenamiento. En la interpretación de los gráficos residuales se comprobará si la media se mantiene alrededor de cero, si la dispersión cambia con el tiempo y si la ACF muestra autocorrelación; estos gráficos son diagnósticos y no sustituyen por sí solos los contrastes formales exigidos por la asignatura.
 
 
 ## Despliegue
